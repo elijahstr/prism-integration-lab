@@ -4,11 +4,14 @@ import { sendError } from "./http/errors";
 import { MAX_WEBHOOK_BYTES } from "./http/raw-json";
 import { registerDashboardRoutes } from "./routes/dashboard";
 import { registerLabRoutes } from "./routes/lab";
+import type { LabRouteDependencies } from "./routes/lab";
 import { registerMessageRoutes } from "./routes/messages";
 import { registerReviewRoutes } from "./routes/reviews";
 import { registerWebhookRoutes } from "./routes/webhooks";
 
-export function buildServer(): FastifyInstance {
+export type BuildServerOptions = { lab?: LabRouteDependencies };
+
+export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   const server = Fastify({ bodyLimit: MAX_WEBHOOK_BYTES, logger: false });
 
   server.addContentTypeParser(
@@ -26,7 +29,7 @@ export function buildServer(): FastifyInstance {
   server.setErrorHandler((error, _request, reply) => sendError(reply, error));
   registerWebhookRoutes(server);
   registerDashboardRoutes(server);
-  registerLabRoutes(server);
+  registerLabRoutes(server, options.lab);
   registerMessageRoutes(server);
   registerReviewRoutes(server);
 

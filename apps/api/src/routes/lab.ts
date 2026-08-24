@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 
 import {
   createLabSession,
+  failScenarioRun,
   readScenarioRun,
   resetScenarioRun,
   saveScenarioTrace,
@@ -34,13 +35,41 @@ type LabResources = {
   showId: string;
   venueWaveConnectionId: string;
 };
-type ScenarioObservation = {
+export type ScenarioObservation = {
   audit: string;
   databaseEffect: string;
   normalized: string;
   processing: string;
   state: string;
 };
+export type ScenarioClock = {
+  elapsedMs: number;
+  waits: readonly number[];
+  sleep(milliseconds: number): Promise<void>;
+};
+
+export class VirtualScenarioClock implements ScenarioClock {
+  elapsedMs = 0;
+  waits: number[] = [];
+
+  async sleep(milliseconds: number): Promise<void> {
+    if (!Number.isInteger(milliseconds) || milliseconds < 0) {
+      throw new Error("Scenario clock delay must be a nonnegative integer");
+    }
+
+    this.elapsedMs += milliseconds;
+    this.waits.push(milliseconds);
+  }
+}
+
+export type LabRouteDependencies = Partial<{
+  createScenarioClock(): ScenarioClock;
+  runScenarioWork(
+    scope: Scope,
+    scenario: ScenarioId,
+    clock: ScenarioClock,
+  ): Promise<ScenarioObservation | undefined>;
+}>;
 
 function labBody(body: unknown): SessionBody {
   if (body instanceof Uint8Array) {
@@ -232,6 +261,7 @@ async function venueWaveCursor(scope: Scope): Promise<string> {
 async function runScenarioWork(
   scope: Scope,
   scenario: ScenarioId,
+  clock: ScenarioClock,
 ): Promise<ScenarioObservation | undefined> {
   const resources = await labResources(scope);
   const deliveryId = (name: string) => `${name}-${randomUUID()}`;
@@ -328,6 +358,12 @@ async function runScenarioWork(
       backoffMs,
       error: firstAttempt.error,
     });
+    await clock.sleep(backoffMs);
+    const executedBackoffMs = clock.waits.at(-1);
+
+    if (executedBackoffMs !== backoffMs) {
+      throw new Error("The scenario clock did not execute the outage backoff");
+    }
     const secondAttempt = await pollVenueWave({
       client,
       connectionId: resources.venueWaveConnectionId,
@@ -353,23 +389,28 @@ async function runScenarioWork(
       attempts: 2,
       cursorAfter,
       cursorBefore,
+      cursorInputs: client.cursorInputs
+        .map((cursor) => cursor ?? "initial")
+        .join(","),
     });
     return {
-      audit: `Audit evidence records the temporary error, ${backoffMs} ms backoff, and recovery after 2 attempts.`,
+      audit: `Audit evidence records the temporary error, ${executedBackoffMs} ms executed backoff, and recovery after 2 attempts.`,
       databaseEffect: `The cursor changed from ${cursorBefore} to ${cursorAfter} after 2 attempts and one durable message.`,
       normalized:
         "The successful second poll produced one VenueWave sale effect.",
-      processing: `Attempt 1 failed with ${firstAttempt.error}. Prism planned ${backoffMs} ms exponential backoff. Attempt 2 succeeded without delay in the lab clock.`,
+      processing: `Attempt 1 failed with ${firstAttempt.error}. The virtual demo clock advanced ${executedBackoffMs} ms for exponential backoff. Attempt 2 used the preserved cursor and succeeded.`,
       state: "recovered",
     };
   }
 
   if (scenario === "rate_limit") {
     const cursorBefore = await venueWaveCursor(scope);
+    const client = new VenueWaveSequenceClient([
+      { retryAfterSeconds: 60, type: "rate_limited" },
+      undefined,
+    ]);
     const rateLimitAttempt = await pollVenueWave({
-      client: new VenueWaveSequenceClient([
-        { retryAfterSeconds: 60, type: "rate_limited" },
-      ]),
+      client,
       connectionId: resources.venueWaveConnectionId,
       deliveryId: deliveryId("venuewave-rate-limit"),
       externalEventId: resources.eventId,
@@ -377,6 +418,24 @@ async function runScenarioWork(
 
     if (rateLimitAttempt.status !== "rate_limited") {
       throw new Error("The rate-limit simulator did not return a rate limit");
+    }
+
+    const retryAfterMs = rateLimitAttempt.retryAfterSeconds * 1_000;
+    await clock.sleep(retryAfterMs);
+    const executedRetryAfterMs = clock.waits.at(-1);
+
+    if (executedRetryAfterMs !== retryAfterMs) {
+      throw new Error("The scenario clock did not execute the rate-limit wait");
+    }
+    const retryAttempt = await pollVenueWave({
+      client,
+      connectionId: resources.venueWaveConnectionId,
+      deliveryId: deliveryId("venuewave-rate-limit-retry"),
+      externalEventId: resources.eventId,
+    });
+
+    if (retryAttempt.status !== "no_page") {
+      throw new Error("The rate-limit retry did not preserve the empty page");
     }
 
     const cursorAfter = await venueWaveCursor(scope);
@@ -387,15 +446,19 @@ async function runScenarioWork(
         AND provider = 'venuewave'
     `;
     await addAudit(scope, "venuewave_rate_limited", {
+      attempts: 2,
       cursorAfter,
       cursorBefore,
+      cursorInputs: client.cursorInputs
+        .map((cursor) => cursor ?? "initial")
+        .join(","),
       retryAfterSeconds: rateLimitAttempt.retryAfterSeconds,
     });
     return {
-      audit: `Audit evidence records the ${rateLimitAttempt.retryAfterSeconds}-second retry time and both cursor values.`,
-      databaseEffect: `The cursor stayed unchanged at ${cursorAfter}; no message or financial effect was stored.`,
+      audit: `Audit evidence records the ${executedRetryAfterMs} ms executed wait and both retry cursor inputs.`,
+      databaseEffect: `The cursor stayed unchanged at ${cursorAfter}; both real poll attempts used ${client.cursorInputs.map((cursor) => cursor ?? "initial").join(",")}, and no message or financial effect was stored.`,
       normalized: "The controlled rate limit emitted no financial operation.",
-      processing: `Attempt 1 received a rate limit. Prism planned retry after ${rateLimitAttempt.retryAfterSeconds} seconds without delay in the lab clock.`,
+      processing: `Attempt 1 received a rate limit. The virtual demo clock advanced ${executedRetryAfterMs} ms. Attempt 2 used the preserved cursor and found no page.`,
       state: "retrying",
     };
   }
@@ -514,7 +577,10 @@ async function runScenarioWork(
   return undefined;
 }
 
-export function registerLabRoutes(server: FastifyInstance): void {
+export function registerLabRoutes(
+  server: FastifyInstance,
+  dependencies: LabRouteDependencies = {},
+): void {
   server.post<{ Body: unknown }>(
     "/api/lab/sessions",
     async (request, reply) => {
@@ -556,14 +622,31 @@ export function registerLabRoutes(server: FastifyInstance): void {
         throw new HttpError(401, "The lab session has expired");
       }
 
-      const observation = await runScenarioWork(scope, parsed.data);
-      const fixture = scenarioFixtures[parsed.data];
-      await saveScenarioTrace(
-        scope,
-        runId,
-        observation?.state ?? fixture.state,
-        traceFor(fixture, observation),
-      );
+      try {
+        const observation = await (
+          dependencies.runScenarioWork ?? runScenarioWork
+        )(
+          scope,
+          parsed.data,
+          (
+            dependencies.createScenarioClock ??
+            (() => new VirtualScenarioClock())
+          )(),
+        );
+        const fixture = scenarioFixtures[parsed.data];
+        await saveScenarioTrace(
+          scope,
+          runId,
+          observation?.state ?? fixture.state,
+          traceFor(fixture, observation),
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+
+        await failScenarioRun(scope, runId, message);
+        throw new HttpError(500, "Scenario execution failed");
+      }
       const run = await readScenarioRun(scope, runId);
 
       return reply.status(201).send(run);

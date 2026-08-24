@@ -6,10 +6,21 @@ import { seed } from "../../../../packages/database/scripts/seed";
 import { sql } from "../../../../packages/database/src/client";
 import { expireLabSessions } from "../../../../packages/database/src/lab";
 import { buildServer } from "../server";
+import type { ScenarioClock } from "./lab";
 
 process.env.LAB_TOKEN_PEPPER = "test-lab-token-pepper";
 
 const createdScopeIds: string[] = [];
+
+class TestScenarioClock implements ScenarioClock {
+  elapsedMs = 0;
+  waits: number[] = [];
+
+  async sleep(milliseconds: number): Promise<void> {
+    this.elapsedMs += milliseconds;
+    this.waits.push(milliseconds);
+  }
+}
 
 async function createSession(
   server: ReturnType<typeof buildServer>,
@@ -169,7 +180,10 @@ describe("integration lab", () => {
   });
 
   test("records observed outage and rate-limit poll evidence", async () => {
-    const server = buildServer();
+    const clock = new TestScenarioClock();
+    const server = buildServer({
+      lab: { createScenarioClock: () => clock },
+    });
     const outage = await createSession(server);
     const outageResponse = await server.inject({
       method: "POST",
@@ -192,6 +206,14 @@ describe("integration lab", () => {
       "after 2 attempts",
     );
     expect(rateResponse.json().trace[3].databaseEffect).toContain("unchanged");
+    expect(outageResponse.json().trace[1].explanation).toContain(
+      "virtual demo clock advanced 1000 ms",
+    );
+    expect(rateResponse.json().trace[1].explanation).toContain(
+      "virtual demo clock advanced 60000 ms",
+    );
+    expect(clock.waits).toEqual([1000, 60000]);
+    expect(clock.elapsedMs).toBe(61000);
     const auditRows = Array.from(
       await sql<
         {
@@ -200,6 +222,7 @@ describe("integration lab", () => {
           backoffMs: string | null;
           cursorAfter: string | null;
           cursorBefore: string | null;
+          cursorInputs: string | null;
           error: string | null;
           retryAfterSeconds: string | null;
         }[]
@@ -210,6 +233,7 @@ describe("integration lab", () => {
             details->>'backoffMs' AS "backoffMs",
             details->>'cursorAfter' AS "cursorAfter",
             details->>'cursorBefore' AS "cursorBefore",
+            details->>'cursorInputs' AS "cursorInputs",
             details->>'error' AS error,
             details->>'retryAfterSeconds' AS "retryAfterSeconds"
           FROM audit_entries
@@ -232,6 +256,9 @@ describe("integration lab", () => {
       expect.objectContaining({ retryAfterSeconds: "60" }),
     );
     expect(rateLimit?.cursorAfter).toBe(rateLimit?.cursorBefore);
+    expect(rateLimit?.cursorInputs).toBe(
+      `${rateLimit?.cursorBefore},${rateLimit?.cursorBefore}`,
+    );
     expect(recovered).toEqual(
       expect.objectContaining({
         attempts: "2",
@@ -245,6 +272,57 @@ describe("integration lab", () => {
         error: "temporary provider failure",
       }),
     );
+    await server.close();
+  });
+
+  test("closes a failed scenario lease before expiry can remove its scope", async () => {
+    const server = buildServer({
+      lab: {
+        runScenarioWork: async () => {
+          throw new Error("injected scenario failure");
+        },
+      },
+    });
+    const session = await createSession(server);
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/lab/scenarios/duplicate_webhook/run",
+      headers: { authorization: `Lab ${session.token}` },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(
+      Array.from(
+        await sql<{ state: string }[]>`
+          SELECT state FROM scenario_runs WHERE scope_id = ${session.scopeId}
+        `,
+      ),
+    ).toEqual([{ state: "failed" }]);
+    expect(
+      Array.from(
+        await sql<{ action: string }[]>`
+          SELECT action FROM audit_entries
+          WHERE scope_id = ${session.scopeId}
+            AND action = 'scenario_failed'
+        `,
+      ),
+    ).toEqual([{ action: "scenario_failed" }]);
+    expect(
+      Array.from(
+        await sql<{ state: string; title: string }[]>`
+          SELECT state, title FROM trace_steps
+          WHERE scope_id = ${session.scopeId}
+            AND state = 'failed'
+        `,
+      ),
+    ).toEqual([{ state: "failed", title: "Scenario failure" }]);
+    await sql`
+      UPDATE demo_sessions
+      SET expires_at = now() - interval '1 second'
+      WHERE scope_id = ${session.scopeId}
+    `;
+
+    expect(await expireLabSessions()).toBe(1);
     await server.close();
   });
 

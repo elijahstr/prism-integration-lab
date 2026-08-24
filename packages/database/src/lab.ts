@@ -209,6 +209,52 @@ export async function startScenarioRun(
   });
 }
 
+export async function failScenarioRun(
+  scope: Scope,
+  runId: string,
+  error: string,
+): Promise<void> {
+  await sql.begin(async (transaction) => {
+    const runs = await transaction`
+      SELECT 1 FROM scenario_runs
+      WHERE id = ${runId}
+        AND scope_id = ${scope.scopeId}
+        AND organization_id = ${scope.organizationId}
+        AND state = 'running'
+      FOR UPDATE
+    `;
+
+    if (runs.length !== 1) return;
+
+    await transaction`
+      INSERT INTO audit_entries (id, scope_id, organization_id, action, details)
+      VALUES (
+        ${`audit-lab-${randomUUID()}`}, ${scope.scopeId},
+        ${scope.organizationId}, 'scenario_failed', ${transaction.json({ error })}
+      )
+    `;
+    await transaction`
+      INSERT INTO trace_steps (
+        id, scope_id, organization_id, scenario_run_id, step_order, state,
+        title, explanation, database_effect
+      )
+      VALUES (
+        ${`trace-lab-${randomUUID()}`}, ${scope.scopeId},
+        ${scope.organizationId}, ${runId}, 99, 'failed',
+        'Scenario failure', 'The lab stopped after a controlled scenario failure.',
+        'The run is marked failed, so it no longer holds an expiry lease.'
+      )
+      ON CONFLICT (scope_id, scenario_run_id, step_order) DO NOTHING
+    `;
+    await transaction`
+      UPDATE scenario_runs SET state = 'failed'
+      WHERE id = ${runId}
+        AND scope_id = ${scope.scopeId}
+        AND organization_id = ${scope.organizationId}
+    `;
+  });
+}
+
 export async function saveScenarioTrace(
   scope: Scope,
   runId: string,

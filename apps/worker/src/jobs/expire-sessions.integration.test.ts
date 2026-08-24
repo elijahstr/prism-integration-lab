@@ -22,6 +22,25 @@ function deferred(): { promise: Promise<void>; resolve(): void } {
   return { promise, resolve };
 }
 
+async function waitForAdvisoryWaiter(lockKey: number): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const waiters = await sql`
+      SELECT 1
+      FROM pg_locks
+      WHERE locktype = 'advisory'
+        AND objid = ${lockKey}
+        AND granted = false
+      LIMIT 1
+    `;
+
+    if (waiters.length === 1) return;
+
+    await Bun.sleep(5);
+  }
+
+  throw new Error("The database operation did not reach the advisory barrier");
+}
+
 describe("lab session expiry", () => {
   beforeAll(async () => {
     await migrate();
@@ -107,28 +126,51 @@ describe("lab session expiry", () => {
       SET expires_at = now() - interval '1 second'
       WHERE scope_id = ${session.scopeId}
     `;
-    const locked = deferred();
-    const release = deferred();
-    const holder = sql.begin(async (transaction) => {
-      await transaction`
-        SELECT 1 FROM demo_sessions
-        WHERE scope_id = ${session.scopeId}
-        FOR UPDATE
-      `;
-      locked.resolve();
-      await release.promise;
+    await sql.unsafe(`
+      CREATE OR REPLACE FUNCTION delay_lab_expiry() RETURNS trigger
+      LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.scope_id = '${session.scopeId}' AND NEW.state = 'expired' THEN
+          PERFORM pg_advisory_xact_lock(812346);
+        END IF;
+        RETURN NEW;
+      END;
+      $$
+    `);
+    await sql.unsafe(`
+      CREATE TRIGGER delay_lab_expiry_trigger
+      BEFORE UPDATE ON demo_sessions
+      FOR EACH ROW EXECUTE FUNCTION delay_lab_expiry()
+    `);
+    const barrierLocked = deferred();
+    const releaseBarrier = deferred();
+    const barrier = sql.begin(async (transaction) => {
+      await transaction`SELECT pg_advisory_xact_lock(812346)`;
+      barrierLocked.resolve();
+      await releaseBarrier.promise;
     });
 
-    await locked.promise;
+    await barrierLocked.promise;
     const expiry = expireSessions();
+    await waitForAdvisoryWaiter(812346);
     const start = startScenarioRun(session, "duplicate_webhook");
-    release.resolve();
+    releaseBarrier.resolve();
 
-    const [deleted, runId] = await Promise.all([expiry, start]);
+    let deleted: number;
+    let runId: string | null;
+
+    try {
+      [deleted, runId] = await Promise.all([expiry, start]);
+    } finally {
+      await barrier;
+      await sql.unsafe(
+        "DROP TRIGGER delay_lab_expiry_trigger ON demo_sessions",
+      );
+      await sql.unsafe("DROP FUNCTION delay_lab_expiry()");
+    }
 
     expect(deleted).toBe(1);
     expect(runId).toBeNull();
-    await holder;
     expect(
       Array.from(
         await sql`
@@ -188,17 +230,15 @@ describe("lab session expiry", () => {
       throw new Error("Expected a seeded lab session");
     }
 
-    await sql`
-      UPDATE demo_sessions
-      SET expires_at = now() + interval '300 milliseconds'
-      WHERE scope_id = ${session.scopeId}
-    `;
     await sql.unsafe(`
       CREATE OR REPLACE FUNCTION delay_lab_scenario_start() RETURNS trigger
       LANGUAGE plpgsql AS $$
       BEGIN
         IF NEW.scope_id = '${session.scopeId}' THEN
-          PERFORM pg_sleep(0.5);
+          PERFORM pg_advisory_xact_lock(812345);
+          UPDATE demo_sessions
+          SET state = 'expired', expires_at = now() - interval '1 second'
+          WHERE scope_id = NEW.scope_id;
         END IF;
         RETURN NEW;
       END;
@@ -209,22 +249,19 @@ describe("lab session expiry", () => {
       BEFORE INSERT ON scenario_runs
       FOR EACH ROW EXECUTE FUNCTION delay_lab_scenario_start()
     `);
-    const locked = deferred();
-    const release = deferred();
-    const holder = sql.begin(async (transaction) => {
-      await transaction`
-        SELECT 1 FROM demo_sessions
-        WHERE scope_id = ${session.scopeId}
-        FOR UPDATE
-      `;
-      locked.resolve();
-      await release.promise;
+    const barrierLocked = deferred();
+    const releaseBarrier = deferred();
+    const barrier = sql.begin(async (transaction) => {
+      await transaction`SELECT pg_advisory_xact_lock(812345)`;
+      barrierLocked.resolve();
+      await releaseBarrier.promise;
     });
 
-    await locked.promise;
+    await barrierLocked.promise;
     const start = startScenarioRun(session, "duplicate_webhook");
+    await waitForAdvisoryWaiter(812345);
     const expiry = expireSessions();
-    release.resolve();
+    releaseBarrier.resolve();
 
     try {
       const [runId, deleted] = await Promise.all([start, expiry]);
@@ -238,8 +275,15 @@ describe("lab session expiry", () => {
           `,
         ),
       ).toEqual([{ state: "running" }]);
+      expect(
+        Array.from(
+          await sql<{ state: string }[]>`
+            SELECT state FROM demo_sessions WHERE scope_id = ${session.scopeId}
+          `,
+        ),
+      ).toEqual([{ state: "expired" }]);
     } finally {
-      await holder;
+      await barrier;
       await sql.unsafe(
         "DROP TRIGGER delay_lab_scenario_start_trigger ON scenario_runs",
       );

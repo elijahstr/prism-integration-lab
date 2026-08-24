@@ -19,11 +19,16 @@ export class VenueWaveClient {
 }
 
 export class VenueWaveSequenceClient {
+  readonly cursorInputs: Array<string | null> = [];
+
   private index = 0;
 
-  constructor(private readonly responses: VenueWavePollResponse[]) {}
+  constructor(
+    private readonly responses: Array<VenueWavePollResponse | undefined>,
+  ) {}
 
-  getPage(_cursor: string | null): VenueWavePollResponse | undefined {
+  getPage(cursor: string | null): VenueWavePollResponse | undefined {
+    this.cursorInputs.push(cursor);
     const response = this.responses[this.index];
     this.index += 1;
     return response;
