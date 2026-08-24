@@ -1,7 +1,15 @@
+import { Queue } from "bullmq";
 import IORedis from "ioredis";
 
-export function createBullMqConnection(
-  redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379",
-) {
-  return new IORedis(redisUrl, { maxRetriesPerRequest: null });
+export const bullMqConnection = new IORedis(
+  process.env.REDIS_URL ?? "redis://localhost:6379",
+  { maxRetriesPerRequest: null },
+);
+
+export const ingestionQueue = new Queue("ingestion", {
+  connection: bullMqConnection,
+});
+
+export function getBullMqConnection() {
+  return bullMqConnection;
 }
