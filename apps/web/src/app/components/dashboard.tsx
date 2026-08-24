@@ -1,6 +1,12 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   MessageDto,
   OverviewDto,
@@ -39,6 +45,7 @@ import {
   readLabToken,
 } from "../lib/session";
 import { loadDashboardSession } from "../lib/dashboard-session";
+import { DashboardLoadCoordinator } from "../lib/dashboard-load";
 import {
   dashboardHref,
   dashboardLocation,
@@ -59,6 +66,10 @@ type DashboardData = {
   providers: ProviderDto[];
   reviews: ReviewDto[];
   shows: ShowDto[];
+};
+type DashboardSession = {
+  dashboard: DashboardData;
+  run: ScenarioRunDto | null;
 };
 
 const organizations = [
@@ -628,35 +639,43 @@ export function DashboardPage({
   const [labStatus, setLabStatus] = useState("No scenario has run.");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [run, setRun] = useState<ScenarioRunDto | null>(null);
+  const loadCoordinatorRef = useRef(
+    new DashboardLoadCoordinator<DashboardSession>(),
+  );
 
   const refresh = useCallback(async (token: string) => {
     const nextData = await loadDashboard(token);
     setData(nextData);
   }, []);
 
-  const startSession = useCallback(async (state: DashboardRouteState) => {
-    setData(null);
-    setError(null);
-    setRun(null);
-    try {
-      const session = await loadDashboardSession({
-        createToken: async () =>
-          (await createLabSession(state.organizationSlug)).token,
-        loadDashboard,
-        loadRun: getScenarioRun,
-        organizationSlug: state.organizationSlug,
-        runId: state.runId,
-        storage: window.sessionStorage,
-      });
-      setData(session.dashboard);
-      setRun(session.run);
-    } catch (reason) {
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : "The demo session could not start.",
-      );
-    }
+  const startSession = useCallback((state: DashboardRouteState) => {
+    loadCoordinatorRef.current.start(
+      state.organizationSlug,
+      () =>
+        loadDashboardSession({
+          createToken: async () =>
+            (await createLabSession(state.organizationSlug)).token,
+          loadDashboard,
+          loadRun: getScenarioRun,
+          organizationSlug: state.organizationSlug,
+          runId: state.runId,
+          storage: window.sessionStorage,
+        }),
+      {
+        error: (reason) => {
+          setError(reason.message);
+        },
+        loading: () => {
+          setData(null);
+          setError(null);
+          setRun(null);
+        },
+        success: (session) => {
+          setData(session.dashboard);
+          setRun(session.run);
+        },
+      },
+    );
   }, []);
 
   useEffect(() => {
@@ -673,6 +692,7 @@ export function DashboardPage({
     readLabToken(window.sessionStorage, routeState.organizationSlug);
 
   const replaceRouteState = (nextState: DashboardRouteState) => {
+    loadCoordinatorRef.current.invalidate();
     window.history.replaceState(
       null,
       "",
