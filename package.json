@@ -1,0 +1,25 @@
+{
+  "name": "prism-integration-lab",
+  "private": true,
+  "packageManager": "bun@1.3.11",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p packages/contracts && tsc --noEmit -p apps/worker",
+    "verify": "bun run format:check && bun run typecheck && bun test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/bun": "1.4.0",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "prettier": "3.9.6",
+    "typescript": "7.0.2"
+  }
+}

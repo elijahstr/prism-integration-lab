@@ -1,0 +1,10 @@
+{
+  "name": "@prism/providers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@prism/contracts": "workspace:*",
+    "zod": "4.4.3"
+  }
+}
