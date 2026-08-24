@@ -7,7 +7,7 @@ import type { Scope } from "../../../../packages/database/src/scope";
 import { migrate } from "../../../../packages/database/scripts/migrate";
 import { seed } from "../../../../packages/database/scripts/seed";
 
-import { processMessage } from "./process-message";
+import { processMessage, processQueueJob } from "./process-message";
 
 const scope: Scope = {
   organizationId: "organization-northstar",
@@ -96,6 +96,73 @@ beforeAll(async () => {
 });
 
 describe("message processing", () => {
+  test("allows a transient job failure to succeed on a later attempt", async () => {
+    let calls = 0;
+    const processor = async () => {
+      calls += 1;
+
+      if (calls === 1) {
+        throw new Error("temporary database error");
+      }
+
+      return "applied" as const;
+    };
+
+    await expect(
+      processQueueJob(
+        { attemptsMade: 0, data: { messageId: "transient-message" } },
+        processor,
+      ),
+    ).rejects.toThrow("temporary database error");
+    await expect(
+      processQueueJob(
+        { attemptsMade: 1, data: { messageId: "transient-message" } },
+        processor,
+      ),
+    ).resolves.toBe("applied");
+
+    expect(calls).toBe(2);
+  });
+
+  test("records a failed message and audit evidence after the fifth failure", async () => {
+    const accepted = await acceptMessage(
+      scope,
+      encoreEnvelopeFor(`exhausted-retry-${crypto.randomUUID()}`),
+    );
+
+    await expect(
+      processQueueJob(
+        { attemptsMade: 4, data: { messageId: accepted.messageId } },
+        async () => {
+          throw new Error("database unavailable");
+        },
+      ),
+    ).rejects.toThrow("database unavailable");
+
+    const messages = await sql<[{ state: string }]>`
+      SELECT state
+      FROM ingestion_messages
+      WHERE id = ${accepted.messageId}
+    `;
+    const audits = await sql<
+      [{ action: string; error: string; attempts: string }]
+    >`
+      SELECT
+        action,
+        details->>'error' AS error,
+        details->>'attempts' AS attempts
+      FROM audit_entries
+      WHERE message_id = ${accepted.messageId}
+    `;
+
+    expect(messages[0]).toEqual({ state: "failed" });
+    expect(audits[0]).toEqual({
+      action: "failed",
+      attempts: "5",
+      error: "database unavailable",
+    });
+  });
+
   test("concurrent redelivery inserts one effect and changes the fact once", async () => {
     const accepted = await acceptMessage(
       scope,

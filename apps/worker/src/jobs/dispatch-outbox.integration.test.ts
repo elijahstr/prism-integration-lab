@@ -79,6 +79,13 @@ describe("outbox dispatch", () => {
 
     expect(recovered).toBeGreaterThanOrEqual(1);
     expect(queuedJob?.id).toBe(accepted.messageId);
+    expect(queuedJob?.opts).toEqual(
+      expect.objectContaining({
+        attempts: 5,
+        backoff: { delay: 1000, type: "exponential" },
+        removeOnFail: true,
+      }),
+    );
     expect(outbox[0]).toEqual({ dispatchAttempts: 2, isDispatched: true });
 
     await processMessage(accepted.messageId);

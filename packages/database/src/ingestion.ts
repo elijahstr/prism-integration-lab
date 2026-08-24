@@ -190,3 +190,58 @@ export async function markOutboxDispatched(id: string): Promise<void> {
     `;
   });
 }
+
+export async function markMessageFailed(
+  messageId: string,
+  error: string,
+  attempts: number,
+): Promise<void> {
+  await sql.begin(async (transaction) => {
+    const messages = await transaction<
+      { organizationId: string; scopeId: string }[]
+    >`
+      SELECT
+        organization_id AS "organizationId",
+        scope_id AS "scopeId"
+      FROM ingestion_messages
+      WHERE id = ${messageId}
+      FOR UPDATE
+    `;
+    const message = messages[0];
+
+    if (!message) {
+      throw new Error("Ingestion message does not exist");
+    }
+
+    const failed = await transaction<{ id: string }[]>`
+      UPDATE ingestion_messages
+      SET state = 'failed'
+      WHERE id = ${messageId}
+        AND state NOT IN ('applied', 'ignored_old', 'needs_review', 'failed')
+      RETURNING id
+    `;
+
+    if (failed.length === 0) {
+      return;
+    }
+
+    await transaction`
+      INSERT INTO audit_entries (
+        id,
+        scope_id,
+        organization_id,
+        message_id,
+        action,
+        details
+      )
+      VALUES (
+        ${randomUUID()},
+        ${message.scopeId},
+        ${message.organizationId},
+        ${messageId},
+        'failed',
+        ${transaction.json({ attempts, error })}
+      )
+    `;
+  });
+}

@@ -17,6 +17,9 @@ import {
   sql,
   type TransactionSql,
 } from "../../../../packages/database/src/client";
+import { markMessageFailed } from "../../../../packages/database/src/ingestion";
+
+const processingAttempts = 5;
 
 type StoredMessage = {
   checksum: string;
@@ -41,6 +44,11 @@ type Mapping = {
 
 export type ProcessMessageResult =
   "already_processed" | "applied" | "ignored_old" | "needs_review";
+
+export type ProcessMessageJob = {
+  attemptsMade: number;
+  data: { messageId: string };
+};
 
 function adapterFor(provider: Provider): ProviderAdapter {
   if (provider === "encoretix") {
@@ -370,4 +378,22 @@ export async function processMessage(
 
     return result;
   });
+}
+
+export async function processQueueJob(
+  job: ProcessMessageJob,
+  processor: (
+    messageId: string,
+  ) => Promise<ProcessMessageResult> = processMessage,
+): Promise<ProcessMessageResult> {
+  try {
+    return await processor(job.data.messageId);
+  } catch (error) {
+    if (job.attemptsMade + 1 === processingAttempts) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      await markMessageFailed(job.data.messageId, message, processingAttempts);
+    }
+
+    throw error;
+  }
 }

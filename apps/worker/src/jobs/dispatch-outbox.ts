@@ -7,9 +7,20 @@ export type MessageQueue = {
   add(
     name: string,
     data: { messageId: string },
-    options: { jobId: string },
+    options: {
+      attempts: 5;
+      backoff: { delay: 1000; type: "exponential" };
+      jobId: string;
+      removeOnFail: true;
+    },
   ): Promise<unknown>;
 };
+
+export const processMessageJobOptions = {
+  attempts: 5,
+  backoff: { delay: 1000, type: "exponential" },
+  removeOnFail: true,
+} as const;
 
 export async function dispatchOutboxBatch(
   queue: MessageQueue,
@@ -21,7 +32,7 @@ export async function dispatchOutboxBatch(
     await queue.add(
       "process-message",
       { messageId: outboxRow.messageId },
-      { jobId: outboxRow.messageId },
+      { jobId: outboxRow.messageId, ...processMessageJobOptions },
     );
     await markOutboxDispatched(outboxRow.id);
   }
