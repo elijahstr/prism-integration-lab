@@ -6,6 +6,13 @@ import { ScenarioIdSchema } from "./scenario";
 export const CentsSchema = z.number().int();
 export const UsdCurrencySchema = z.literal("USD");
 
+export const LabSessionDtoSchema = z
+  .object({
+    expiresAt: UtcTimestampSchema,
+    token: z.string().min(1),
+  })
+  .strict();
+
 export const TraceStepSchema = z
   .object({
     order: z.number().int().nonnegative(),
@@ -88,6 +95,7 @@ export const ScenarioRunDtoSchema = z
   .strict();
 
 export type TraceStep = z.infer<typeof TraceStepSchema>;
+export type LabSessionDto = z.infer<typeof LabSessionDtoSchema>;
 export type TicketFactDto = z.infer<typeof TicketFactDtoSchema>;
 export type OverviewDto = z.infer<typeof OverviewDtoSchema>;
 export type ProviderDto = z.infer<typeof ProviderDtoSchema>;

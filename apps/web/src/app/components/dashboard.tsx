@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  type FormEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import type {
   MessageDto,
   OverviewDto,
@@ -26,14 +20,26 @@ import {
 } from "@prism/contracts";
 
 import {
+  approveReview,
+  createLabSession,
+  dashboardRequest,
+  rejectReview,
+  replayMessage as requestMessageReplay,
+} from "../lib/api";
+import {
   formatCurrency,
   formatSyncDelay,
   formatTimestamp,
   sumProviderTicketFacts,
 } from "../lib/format";
-
-type PageName =
-  "events" | "ingestion" | "lab" | "overview" | "providers" | "reviews";
+import {
+  clearLabToken,
+  LabSessionExpiredError,
+  readLabToken,
+  readWithLabSession,
+} from "../lib/session";
+import { actionErrorMessage, focusActionResult } from "../lib/ui-state";
+import { DashboardShell, type DashboardPageName } from "./dashboard-shell";
 
 type DashboardData = {
   messages: MessageDto[];
@@ -43,21 +49,10 @@ type DashboardData = {
   shows: ShowDto[];
 };
 
-type LabSession = { expiresAt: string; token: string };
-
 const organizations = [
   { label: "Northstar Presents", slug: "northstar-presents" },
   { label: "Harborlight Live", slug: "harborlight-live" },
 ] as const;
-
-const navigation: Array<{ href: string; id: PageName; label: string }> = [
-  { href: "/", id: "overview", label: "Overview" },
-  { href: "/providers", id: "providers", label: "Providers" },
-  { href: "/events", id: "events", label: "Events" },
-  { href: "/needs-review", id: "reviews", label: "Needs Review" },
-  { href: "/integration-lab", id: "lab", label: "Integration Lab" },
-  { href: "/how-ingestion-works", id: "ingestion", label: "How it works" },
-];
 
 const scenarios: Array<{
   description: string;
@@ -105,36 +100,6 @@ const scenarios: Array<{
     title: "Provider change",
   },
 ];
-
-async function createLabSession(organizationSlug: string): Promise<LabSession> {
-  const response = await fetch("/api/lab/sessions", {
-    body: JSON.stringify({ organizationSlug }),
-    headers: { "content-type": "application/json" },
-    method: "POST",
-  });
-
-  if (!response.ok) {
-    throw new Error("The demo session could not start.");
-  }
-
-  return (await response.json()) as LabSession;
-}
-
-async function dashboardRequest<T>(
-  token: string,
-  path: string,
-  schema: { parse(value: unknown): T },
-): Promise<T> {
-  const response = await fetch(path, {
-    headers: { authorization: `Lab ${token}` },
-  });
-
-  if (!response.ok) {
-    throw new Error("The dashboard data could not load.");
-  }
-
-  return schema.parse(await response.json());
-}
 
 async function loadDashboard(token: string): Promise<DashboardData> {
   const [overview, providers, shows, messages, reviews] = await Promise.all([
@@ -626,71 +591,11 @@ function IntegrationLab({
   );
 }
 
-function IngestionWorks() {
-  return (
-    <div className="story-grid">
-      <section className="panel story-lead">
-        <p className="eyebrow">One shared pipeline</p>
-        <h2>Change the edge, not the safety rules.</h2>
-        <p>
-          Each provider creates the same envelope. Prism saves it first, then
-          queues normalization. The provider transport can change without
-          bypassing audit, mapping, or review.
-        </p>
-      </section>
-      <section className="panel">
-        <p className="eyebrow">1. Signed webhook</p>
-        <h2>EncoreTix</h2>
-        <p>
-          Fast delivery supports sale and refund updates. Signature checks,
-          replay windows, duplicate keys, and snapshot reconciliation control
-          late or repeated messages.
-        </p>
-      </section>
-      <section className="panel">
-        <p className="eyebrow">2. Incremental poll</p>
-        <h2>VenueWave</h2>
-        <p>
-          The worker writes a page before it advances its cursor. Rate limits
-          retain that cursor, then exponential backoff schedules another safe
-          attempt.
-        </p>
-      </section>
-      <section className="panel">
-        <p className="eyebrow">3. Complete snapshot</p>
-        <h2>BoxGrid</h2>
-        <p>
-          The system validates a complete provider snapshot in staging. A
-          partial snapshot does not replace current facts.
-        </p>
-      </section>
-      <section className="panel full-width">
-        <p className="eyebrow">Durable recovery</p>
-        <h2>Transactional outbox and at-least-once work</h2>
-        <p>
-          The database stores a provider message and an outbox record in one
-          transaction. A worker can retry the outbox after a process failure.
-          The queue is at-least-once, which means a job can arrive more than
-          once. Delivery keys and source versions make duplicate processing
-          safe; the design does not claim exactly once.
-        </p>
-      </section>
-      <section className="panel full-width callout">
-        <p className="eyebrow">Provider scope matters</p>
-        <h2>400 + 600 = 1,000</h2>
-        <p>
-          EncoreTix sells 400 tickets before a provider change. BoxGrid then
-          sends a complete BoxGrid snapshot for 600 tickets. The snapshot
-          applies only to BoxGrid. Prism keeps both provider facts, so the show
-          total is 1,000. Replacing the full show total with 600 would delete
-          the earlier EncoreTix sales.
-        </p>
-      </section>
-    </div>
-  );
-}
-
-export function DashboardPage({ page }: { page: PageName }) {
+export function DashboardPage({
+  page,
+}: {
+  page: Exclude<DashboardPageName, "ingestion">;
+}) {
   const [organizationSlug, setOrganizationSlug] = useState<string>(
     organizations[0].slug,
   );
@@ -699,8 +604,6 @@ export function DashboardPage({ page }: { page: PageName }) {
   const [labStatus, setLabStatus] = useState("No scenario has run.");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [run, setRun] = useState<ScenarioRunDto | null>(null);
-  const sessionRef = useRef<LabSession | null>(null);
-  const mainRef = useRef<HTMLElement>(null);
 
   const refresh = useCallback(async (token: string) => {
     const nextData = await loadDashboard(token);
@@ -713,9 +616,12 @@ export function DashboardPage({ page }: { page: PageName }) {
       setError(null);
       setRun(null);
       try {
-        const session = await createLabSession(slug);
-        sessionRef.current = session;
-        await refresh(session.token);
+        const nextData = await readWithLabSession(
+          window.sessionStorage,
+          async () => (await createLabSession(slug)).token,
+          loadDashboard,
+        );
+        setData(nextData);
       } catch (reason) {
         setError(
           reason instanceof Error
@@ -731,100 +637,123 @@ export function DashboardPage({ page }: { page: PageName }) {
     void startSession(organizationSlug);
   }, [organizationSlug, startSession]);
 
-  const restoreFocus = () => {
-    mainRef.current?.focus();
-  };
+  const activeToken = () => readLabToken(window.sessionStorage);
 
   async function reviewAction(review: ReviewDto, action: "approve" | "reject") {
-    const session = sessionRef.current;
-    if (!session) return;
+    const token = activeToken();
+    if (!token) {
+      setError("The lab session is unavailable. Reload this page.");
+      focusActionResult(document);
+      return;
+    }
+    setError(null);
     setPendingAction(review.id);
     try {
-      await dashboardRequest(
-        session.token,
-        `/api/reviews/${review.id}/${action}`,
-        { parse: (value) => value },
-      );
-      await refresh(session.token);
-      restoreFocus();
+      await (action === "approve"
+        ? approveReview(token, review.id)
+        : rejectReview(token, review.id));
+      await refresh(token);
     } catch (reason) {
+      if (reason instanceof LabSessionExpiredError) {
+        clearLabToken(window.sessionStorage);
+      }
       setError(
         reason instanceof Error ? reason.message : "The review action failed.",
       );
     } finally {
       setPendingAction(null);
+      focusActionResult(document);
     }
   }
 
   async function runScenario(scenario: ScenarioId) {
-    const session = sessionRef.current;
-    if (!session) return;
+    const token = activeToken();
+    if (!token) {
+      setError("The lab session is unavailable. Reload this page.");
+      focusActionResult(document);
+      return;
+    }
+    setError(null);
     setPendingAction(scenario);
     setLabStatus(
       `Running ${scenarios.find((item) => item.id === scenario)?.title ?? "scenario"}.`,
     );
     try {
       const nextRun = await dashboardRequest(
-        session.token,
+        token,
         `/api/lab/scenarios/${scenario}/run`,
         ScenarioRunDtoSchema,
+        { method: "POST" },
       );
       setRun(nextRun);
-      await refresh(session.token);
+      await refresh(token);
       setLabStatus("Scenario completed. The processing trace is available.");
-      restoreFocus();
     } catch (reason) {
+      if (reason instanceof LabSessionExpiredError) {
+        clearLabToken(window.sessionStorage);
+      }
       setError(
         reason instanceof Error ? reason.message : "The scenario failed.",
       );
       setLabStatus("Scenario failed. Check the dashboard message.");
     } finally {
       setPendingAction(null);
+      focusActionResult(document);
     }
   }
 
   async function resetRun() {
-    const session = sessionRef.current;
-    if (!session || !run) return;
+    const token = activeToken();
+    if (!token || !run) return;
+    setError(null);
     setPendingAction(run.id);
     setLabStatus("Resetting the scenario run.");
     try {
-      await dashboardRequest(session.token, `/api/lab/runs/${run.id}/reset`, {
-        parse: (value) => value,
-      });
+      await dashboardRequest(
+        token,
+        `/api/lab/runs/${run.id}/reset`,
+        { parse: (value) => value },
+        { method: "POST" },
+      );
       setRun(null);
-      await refresh(session.token);
+      await refresh(token);
       setLabStatus("Scenario reset. You can select another scenario.");
-      restoreFocus();
     } catch (reason) {
+      if (reason instanceof LabSessionExpiredError) {
+        clearLabToken(window.sessionStorage);
+      }
       setError(reason instanceof Error ? reason.message : "The reset failed.");
     } finally {
       setPendingAction(null);
+      focusActionResult(document);
     }
   }
 
   async function replayMessage(message: MessageDto) {
-    const session = sessionRef.current;
-    if (!session) return;
+    const token = activeToken();
+    if (!token) {
+      setError("The lab session is unavailable. Reload this page.");
+      focusActionResult(document);
+      return;
+    }
+    setError(null);
     setPendingAction(message.id);
     try {
-      await dashboardRequest(
-        session.token,
-        `/api/messages/${message.id}/replay`,
-        {
-          parse: (value) => value,
-        },
-      );
-      await refresh(session.token);
-      restoreFocus();
+      await requestMessageReplay(token, message.id);
+      await refresh(token);
     } catch (reason) {
+      if (reason instanceof LabSessionExpiredError) {
+        clearLabToken(window.sessionStorage);
+      }
       setError(reason instanceof Error ? reason.message : "The replay failed.");
     } finally {
       setPendingAction(null);
+      focusActionResult(document);
     }
   }
 
   function changeOrganization(event: FormEvent<HTMLSelectElement>) {
+    clearLabToken(window.sessionStorage);
     setOrganizationSlug(event.currentTarget.value);
   }
 
@@ -854,72 +783,37 @@ export function DashboardPage({ page }: { page: PageName }) {
       run={run}
       status={labStatus}
     />
-  ) : (
-    <IngestionWorks />
-  );
-  const pageTitle =
-    navigation.find((item) => item.id === page)?.label ?? "Overview";
+  ) : null;
+  const visibleError = actionErrorMessage(error, data !== null);
 
   return (
-    <div className="app-shell">
-      <aside className="rail">
-        <a className="brand" href="/" aria-label="Prism Integration Lab home">
-          <span>PRISM</span>
-          <small>INTEGRATION LAB</small>
-        </a>
-        <nav aria-label="Dashboard navigation">
-          {navigation.map((item) => (
-            <a
-              key={item.id}
-              className={page === item.id ? "active" : ""}
-              href={item.href}
-              aria-current={page === item.id ? "page" : undefined}
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
-        <p className="rail-note">
-          Fictional provider data
-          <br />
-          UTC system time
+    <DashboardShell
+      organization={currentOrganization.label}
+      page={page}
+      topbarControl={
+        <label className="organization-picker">
+          <span>Demo organization</span>
+          <select
+            value={organizationSlug}
+            onChange={changeOrganization}
+            aria-label="Demo organization"
+          >
+            <option value={organizations[0].slug}>
+              {organizations[0].label}
+            </option>
+            <option value={organizations[1].slug}>
+              {organizations[1].label}
+            </option>
+          </select>
+        </label>
+      }
+    >
+      {visibleError ? (
+        <p className="action-error" role="alert">
+          {visibleError}
         </p>
-      </aside>
-      <div className="workspace">
-        <header className="topbar">
-          <div>
-            <p className="prototype-label">Unofficial portfolio prototype</p>
-            <p className="crumb">Workspace / Ticket integrations</p>
-          </div>
-          <label className="organization-picker">
-            <span>Demo organization</span>
-            <select
-              value={organizationSlug}
-              onChange={changeOrganization}
-              aria-label="Demo organization"
-            >
-              <option value={organizations[0].slug}>
-                {organizations[0].label}
-              </option>
-              <option value={organizations[1].slug}>
-                {organizations[1].label}
-              </option>
-            </select>
-          </label>
-        </header>
-        <main id="main-content" ref={mainRef} tabIndex={-1}>
-          <div className="page-heading">
-            <div>
-              <p className="eyebrow">{currentOrganization.label}</p>
-              <h1>{pageTitle}</h1>
-            </div>
-            <p className="session-note">
-              Each browser session uses its own temporary copy of seeded data.
-            </p>
-          </div>
-          {content}
-        </main>
-      </div>
-    </div>
+      ) : null}
+      {content}
+    </DashboardShell>
   );
 }

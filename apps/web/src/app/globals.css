@@ -252,6 +252,14 @@ main {
   max-width: 300px;
   text-align: right;
 }
+.action-error {
+  background: var(--danger-bg);
+  border: 1px solid #c65a51;
+  color: var(--danger-ink);
+  font-weight: 700;
+  margin: 0 0 18px;
+  padding: 10px 12px;
+}
 .report-grid {
   display: grid;
   gap: 10px;
