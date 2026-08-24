@@ -7,10 +7,12 @@
     "packages/*"
   ],
   "scripts": {
+    "db:migrate": "bun packages/database/scripts/migrate.ts",
+    "db:seed": "bun packages/database/scripts/seed.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "bun test",
-    "typecheck": "tsc --noEmit -p packages/contracts && tsc --noEmit -p apps/worker",
+    "typecheck": "tsc --noEmit -p packages/contracts && tsc --noEmit -p packages/database && tsc --noEmit -p apps/worker",
     "verify": "bun run format:check && bun run typecheck && bun test"
   },
   "devDependencies": {
