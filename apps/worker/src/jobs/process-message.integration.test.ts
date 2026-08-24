@@ -93,9 +93,89 @@ beforeAll(async () => {
   await migrate();
   await seed();
   await ensureBoxGridMapping();
+  await sql`
+    DELETE FROM ticket_facts
+    WHERE scope_id = ${scope.scopeId}
+      AND provider = 'boxgrid'
+  `;
 });
 
 describe("message processing", () => {
+  test("records an incomplete snapshot without changing provider facts", async () => {
+    const deliveryId = `incomplete-snapshot-${crypto.randomUUID()}`;
+    const accepted = await acceptMessage(scope, {
+      checksum: "sha256:incomplete-snapshot",
+      connectionId: "connection-northstar-boxgrid",
+      deliveryId,
+      externalEventId: "event-fictional-summer-hall",
+      kind: "snapshot",
+      organizationId: scope.organizationId,
+      payload: {
+        complete: false,
+        facts: { grossSalesCents: 10000, inventory: 50, sold: 10 },
+        sequence: "4",
+      },
+      provider: "boxgrid",
+      receivedAt: "2026-08-24T12:35:01.000Z",
+      scopeId: scope.scopeId,
+      sourceOccurredAt: "2026-08-24T12:34:56.000Z",
+      sourceVersion: "4",
+    });
+
+    await expect(processMessage(accepted.messageId)).resolves.toBe(
+      "needs_review",
+    );
+    expect(
+      Array.from(
+        await sql<{ facts: string; staged: string; action: string }[]>`
+          SELECT
+            (SELECT count(*)::text FROM ticket_facts WHERE provider = 'boxgrid') AS facts,
+            (SELECT count(*)::text FROM snapshot_staging WHERE message_id = ${accepted.messageId}) AS staged,
+            (SELECT action FROM audit_entries WHERE message_id = ${accepted.messageId} ORDER BY created_at DESC LIMIT 1) AS action
+        `,
+      ),
+    ).toEqual([{ facts: "0", staged: "1", action: "snapshot_incomplete" }]);
+  });
+
+  test("stages a complete snapshot before one provider-scoped fact replacement", async () => {
+    const deliveryId = `complete-snapshot-${crypto.randomUUID()}`;
+    const accepted = await acceptMessage(scope, {
+      checksum: "sha256:complete-snapshot",
+      connectionId: "connection-northstar-boxgrid",
+      deliveryId,
+      externalEventId: "event-fictional-summer-hall",
+      kind: "snapshot",
+      organizationId: scope.organizationId,
+      payload: {
+        complete: true,
+        facts: { grossSalesCents: 10000, inventory: 50, sold: 10 },
+        sequence: "5",
+      },
+      provider: "boxgrid",
+      receivedAt: "2026-08-24T12:35:01.000Z",
+      scopeId: scope.scopeId,
+      sourceOccurredAt: "2026-08-24T12:34:56.000Z",
+      sourceVersion: "5",
+    });
+
+    await expect(processMessage(accepted.messageId)).resolves.toBe("applied");
+    expect(
+      Array.from(
+        await sql<{ complete: boolean; sold: number; versionRank: string }[]>`
+          SELECT
+            snapshot_staging.complete,
+            ticket_facts.sold_tickets AS sold,
+            ticket_facts.version_rank::text AS "versionRank"
+          FROM snapshot_staging
+          JOIN ticket_facts
+            ON ticket_facts.provider = snapshot_staging.provider
+            AND ticket_facts.scope_id = snapshot_staging.scope_id
+          WHERE snapshot_staging.message_id = ${accepted.messageId}
+        `,
+      ),
+    ).toEqual([{ complete: true, sold: 10, versionRank: "5" }]);
+  });
+
   test("allows a transient job failure to succeed on a later attempt", async () => {
     let calls = 0;
     const processor = async () => {

@@ -11,7 +11,7 @@ import type { Scope } from "./scope";
 
 export type AcceptMessageResult = {
   messageId: string;
-  status: "accepted" | "duplicate";
+  status: "accepted" | "checksum_conflict" | "duplicate";
 };
 
 export type OutboxRow = {
@@ -108,8 +108,8 @@ export async function acceptMessage(
     `;
 
     if (inserted.length === 0) {
-      const duplicates = await transaction<{ id: string }[]>`
-        SELECT id
+      const duplicates = await transaction<{ checksum: string; id: string }[]>`
+        SELECT id, checksum
         FROM ingestion_messages
         WHERE scope_id = ${scope.scopeId}
           AND organization_id = ${scope.organizationId}
@@ -117,7 +117,55 @@ export async function acceptMessage(
           AND delivery_id = ${envelope.deliveryId}
       `;
 
-      return { status: "duplicate", messageId: duplicates[0]!.id };
+      const duplicate = duplicates[0];
+
+      if (!duplicate) {
+        throw new Error("Duplicate delivery was not found");
+      }
+
+      if (duplicate.checksum === envelope.checksum) {
+        return { status: "duplicate", messageId: duplicate.id };
+      }
+
+      await transaction`
+        UPDATE ingestion_messages
+        SET state = 'needs_review'
+        WHERE scope_id = ${scope.scopeId}
+          AND organization_id = ${scope.organizationId}
+          AND id = ${duplicate.id}
+      `;
+      const details = {
+        firstChecksum: duplicate.checksum,
+        repeatedChecksum: envelope.checksum,
+      };
+      await transaction`
+        INSERT INTO audit_entries (
+          id, scope_id, organization_id, message_id, action, details
+        )
+        VALUES (
+          ${randomUUID()},
+          ${scope.scopeId},
+          ${scope.organizationId},
+          ${duplicate.id},
+          'checksum_conflict',
+          ${transaction.json(details)}
+        )
+      `;
+      await transaction`
+        INSERT INTO review_items (
+          id, scope_id, organization_id, message_id, kind, details
+        )
+        VALUES (
+          ${randomUUID()},
+          ${scope.scopeId},
+          ${scope.organizationId},
+          ${duplicate.id},
+          'checksum_conflict',
+          ${transaction.json(details)}
+        )
+      `;
+
+      return { status: "checksum_conflict", messageId: duplicate.id };
     }
 
     await transaction`
@@ -131,6 +179,60 @@ export async function acceptMessage(
     `;
 
     return { status: "accepted", messageId: inserted[0]!.id };
+  });
+}
+
+export async function replayMessage(
+  scope: Scope,
+  messageId: string,
+): Promise<boolean> {
+  return sql.begin(async (transaction) => {
+    const messages = await transaction<{ id: string }[]>`
+      SELECT id
+      FROM ingestion_messages
+      WHERE id = ${messageId}
+        AND organization_id = ${scope.organizationId}
+        AND scope_id = ${scope.scopeId}
+      FOR UPDATE
+    `;
+
+    if (messages.length !== 1) {
+      return false;
+    }
+
+    await transaction`
+      UPDATE ingestion_messages
+      SET state = 'received'
+      WHERE id = ${messageId}
+        AND organization_id = ${scope.organizationId}
+        AND scope_id = ${scope.scopeId}
+    `;
+    await transaction`
+      INSERT INTO ingestion_outbox (id, scope_id, organization_id, message_id)
+      VALUES (
+        ${randomUUID()},
+        ${scope.scopeId},
+        ${scope.organizationId},
+        ${messageId}
+      )
+      ON CONFLICT (message_id) DO UPDATE
+      SET dispatched_at = NULL, last_claimed_at = NULL
+    `;
+    await transaction`
+      INSERT INTO audit_entries (
+        id, scope_id, organization_id, message_id, action, details
+      )
+      VALUES (
+        ${randomUUID()},
+        ${scope.scopeId},
+        ${scope.organizationId},
+        ${messageId},
+        'replayed',
+        '{}'::jsonb
+      )
+    `;
+
+    return true;
   });
 }
 

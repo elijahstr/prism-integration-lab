@@ -10,6 +10,7 @@ import type {
 } from "../../../../packages/domain/src/operations";
 import {
   boxGridAdapter,
+  BoxGridSnapshotSchema,
   encoreTixAdapter,
   venueWaveAdapter,
 } from "../../../../packages/providers/src/index";
@@ -107,6 +108,33 @@ async function writeAudit(
       ${JSON.stringify(details)}::jsonb
     )
   `;
+}
+
+async function stageSnapshot(
+  transaction: TransactionSql,
+  message: StoredMessage,
+): Promise<boolean> {
+  const snapshot = BoxGridSnapshotSchema.parse(message.payload);
+
+  await transaction`
+    INSERT INTO snapshot_staging (
+      id, scope_id, organization_id, message_id, provider, external_event_id,
+      version_rank, payload, complete
+    )
+    VALUES (
+      ${randomUUID()},
+      ${message.scopeId},
+      ${message.organizationId},
+      ${message.id},
+      ${message.provider},
+      ${message.externalEventId},
+      ${snapshot.sequence},
+      ${JSON.stringify(message.payload)}::jsonb,
+      ${snapshot.complete}
+    )
+  `;
+
+  return snapshot.complete;
 }
 
 async function applyAppendOperation(
@@ -307,6 +335,24 @@ export async function processMessage(
       WHERE scope_id = ${message.scopeId}
         AND id = ${message.id}
     `;
+
+    if (message.provider === "boxgrid" && message.kind === "snapshot") {
+      const isComplete = await stageSnapshot(transaction, message);
+
+      if (!isComplete) {
+        await transaction`
+          UPDATE ingestion_messages
+          SET state = 'needs_review'
+          WHERE scope_id = ${message.scopeId}
+            AND id = ${message.id}
+        `;
+        await writeAudit(transaction, message, "snapshot_incomplete", {
+          sequence: (message.payload as { sequence: string }).sequence,
+        });
+
+        return "needs_review";
+      }
+    }
 
     const mappings = await transaction<Mapping[]>`
       SELECT show_id AS "showId"
