@@ -34,6 +34,8 @@ This is an unofficial portfolio prototype. It is not an official Prism.fm produc
 - Match the supplied Prism interface references without copying private assets or real customer data.
 - Show a clear “unofficial portfolio prototype” label.
 - Keep the GitHub repository public with no AI attribution or AI co-author lines.
+- Use one free Render web service with Neon Free PostgreSQL and Upstash Free Redis for the public demo.
+- Combine the public web, API, and worker process only for free hosting. Keep their source modules separate.
 
 ## User experience
 
@@ -269,7 +271,9 @@ The highest-value invariants are:
 
 Local development uses Docker Compose for PostgreSQL and Redis. One command starts the web, API, worker, database, and queue dependencies. Seed scripts produce a stable presentation dataset.
 
-Continuous integration runs formatting, type checks, unit tests, integration tests, and the production build. The public deployment runs separate web, API, and worker processes with managed PostgreSQL and Redis-compatible storage.
+Continuous integration runs formatting, type checks, unit tests, integration tests, and the production build. The public demo runs one Render web process that serves the static web build, Fastify API, and BullMQ worker. It uses Neon PostgreSQL and Upstash Redis-compatible storage.
+
+This free topology pauses background work when Render sleeps. PostgreSQL outbox recovery and startup catch-up resume durable work after the next request.
 
 The repository is public. The README starts with the live demo, a short system summary, the ingestion architecture, a five-minute walkthrough, local setup, test commands, and the limits of the prototype. Repository text and commits do not include AI attribution or AI co-author lines.
 
@@ -286,5 +290,4 @@ The repository is public. The README starts with the live demo, a short system s
 
 ## Open questions
 
-- Select the public hosting provider after a current check of worker, PostgreSQL, Redis, sleep, and pricing limits.
 - Select the final public domain after the first deployment is available.

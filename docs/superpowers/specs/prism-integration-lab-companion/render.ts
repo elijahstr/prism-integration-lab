@@ -1,5 +1,30 @@
 import { FIGURES } from "./figures.ts";
 
+export type FigureMap = Record<string, string>;
+
+type DigestSection = {
+  source: string;
+  tone?: "approval" | "risk";
+};
+
+export type SpecChrome = {
+  brand?: string;
+  brandDetail?: string;
+  eyebrow?: string;
+  figures?: FigureMap;
+  digestFigureKeys?: string[];
+  digestSections?: DigestSection[];
+};
+
+const DEFAULT_CHROME: Required<Pick<SpecChrome, "brand" | "brandDetail" | "eyebrow">> & {
+  figures: FigureMap;
+} = {
+  brand: "Prism",
+  brandDetail: "integration lab design",
+  eyebrow: "Unofficial portfolio prototype",
+  figures: FIGURES,
+};
+
 export const esc = (value: string) => value
   .replace(/&/g, "&amp;")
   .replace(/</g, "&lt;")
@@ -48,7 +73,7 @@ function slug(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-function renderBlocks(markdown: string): string {
+function renderBlocks(markdown: string, figures: FigureMap): string {
   const lines = markdown.split("\n");
   const output: string[] = [];
   let index = 0;
@@ -56,7 +81,7 @@ function renderBlocks(markdown: string): string {
     const line = lines[index];
     const figure = line.match(/^<!--\s*fig:([a-z-]+)\s*-->$/);
     if (figure) {
-      output.push(FIGURES[figure[1]] ?? `<!-- unknown figure: ${esc(figure[1])} -->`);
+      output.push(figures[figure[1]] ?? `<!-- unknown figure: ${esc(figure[1])} -->`);
       index += 1;
       continue;
     }
@@ -121,36 +146,45 @@ function topBullets(section?: Section): string[] {
   return section.body.split("\n").filter((line) => /^[-*]\s+/.test(line)).map((line) => line.replace(/^[-*]\s+/, ""));
 }
 
-function shell(title: string, body: string, mode: "digest" | "full"): string {
+function shell(title: string, body: string, mode: "digest" | "full", chrome: SpecChrome): string {
+  const { brand, brandDetail, eyebrow } = { ...DEFAULT_CHROME, ...chrome };
   return `<div class="wrap" id="top">
-  <nav class="topnav"><div class="brand">Prism <span>integration lab design</span></div><a class="navlink" href="/">Digest</a><a class="navlink" href="/full">Full spec</a><a class="navlink" href="/raw">Markdown</a></nav>
-  <header class="hero"><div class="kick">Unofficial portfolio prototype · ${mode}</div><h1 class="title">${esc(title)}</h1></header>
+  <nav class="topnav"><div class="brand">${esc(brand)} <span>${esc(brandDetail)}</span></div><a class="navlink" href="/">Digest</a><a class="navlink" href="/full">Full spec</a><a class="navlink" href="/raw">Markdown</a></nav>
+  <header class="hero"><div class="kick">${esc(eyebrow)} · ${mode}</div><h1 class="title">${esc(title)}</h1></header>
   ${body}
 </div>`;
 }
 
-export function renderDigest(markdown: string): string {
+export function renderDigest(markdown: string, chrome: SpecChrome = {}): string {
   const sections = splitSections(markdown);
   const goal = sections.find((section) => /^goal$/i.test(section.title));
   const scope = sections.find((section) => /^scope$/i.test(section.title));
   const decisions = sections.find((section) => /^locked decisions$/i.test(section.title));
   const open = sections.find((section) => /^open questions$/i.test(section.title));
-  const figures = [...markdown.matchAll(/^<!--\s*fig:([a-z-]+)\s*-->$/gm)].map((match) => FIGURES[match[1]]).filter(Boolean).join("\n");
+  const figuresByKey = chrome.figures ?? DEFAULT_CHROME.figures;
+  const figureKeys = chrome.digestFigureKeys ?? [...markdown.matchAll(/^<!--\s*fig:([a-z-]+)\s*-->$/gm)].map((match) => match[1]);
+  const figures = figureKeys.map((key) => figuresByKey[key]).filter(Boolean).join("\n");
   const openItems = topBullets(open);
+  const projected = (chrome.digestSections ?? []).map(({ source, tone }) => {
+    const section = sections.find((candidate) => candidate.title === source);
+    return section ? `<section class="projected-section${tone ? ` ${tone}` : ""}"><h2 class="section-title">${inline(section.title)}</h2>${renderBlocks(section.body, chrome.figures ?? DEFAULT_CHROME.figures)}</section>` : "";
+  }).join("\n");
   const body = `
     <p class="digest-lead">${inline(leadFrom(goal))}</p>
     ${openItems.length ? `<div class="open"><h2>Open questions</h2><ul>${openItems.map((item) => `<li>${inline(item)}</li>`).join("")}</ul></div>` : ""}
     <section><h2 class="section-title">Architecture</h2>${figures}</section>
-    ${scope ? `<section><h2 class="section-title">Scope</h2>${renderBlocks(scope.body)}</section>` : ""}
+    ${scope ? `<section><h2 class="section-title">Scope</h2>${renderBlocks(scope.body, chrome.figures ?? DEFAULT_CHROME.figures)}</section>` : ""}
     ${decisions ? `<section><h2 class="section-title">Locked decisions</h2><ul class="decisions">${topBullets(decisions).map((item) => `<li>${inline(item)}</li>`).join("")}</ul></section>` : ""}
+    ${projected}
     <section><div class="digest-more">This page is a digest of the Markdown specification. <a href="/full">Read the full specification.</a></div></section>`;
-  return shell(titleFrom(markdown), body, "digest");
+  return shell(titleFrom(markdown), body, "digest", chrome);
 }
 
-export function renderContent(markdown: string): string {
+export function renderContent(markdown: string, chrome: SpecChrome = {}): string {
+  const figures = chrome.figures ?? DEFAULT_CHROME.figures;
   const sections = splitSections(markdown);
   const body = sections.map((section) => section.title
-    ? `<section id="${slug(section.title)}"><h2 class="section-title">${inline(section.title)}</h2>${renderBlocks(section.body)}</section>`
-    : renderBlocks(section.body.replace(/^#\s+.+$/m, ""))).join("\n");
-  return shell(titleFrom(markdown), body, "full");
+    ? `<section id="${slug(section.title)}"><h2 class="section-title">${inline(section.title)}</h2>${renderBlocks(section.body, figures)}</section>`
+    : renderBlocks(section.body.replace(/^#\s+.+$/m, ""), figures)).join("\n");
+  return shell(titleFrom(markdown), body, "full", chrome);
 }

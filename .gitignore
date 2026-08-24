@@ -8,3 +8,4 @@ coverage/
 .turbo/
 .superpowers/
 docs/superpowers/specs/prism-integration-lab-companion/out-*.html
+docs/superpowers/plans/prism-integration-lab-companion/out-*
