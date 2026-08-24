@@ -48,6 +48,22 @@ function envelopeFor(deliveryId: string): ProviderEnvelope {
   };
 }
 
+async function createNeedsReviewMessage(
+  externalEventId = "event-fictional-summer-hall",
+): Promise<string> {
+  const accepted = await acceptMessage(scope, {
+    ...envelopeFor(`review-replay-${randomUUID()}`),
+    externalEventId,
+  });
+  await sql`
+    UPDATE ingestion_messages
+    SET state = 'needs_review'
+    WHERE id = ${accepted.messageId}
+  `;
+
+  return accepted.messageId;
+}
+
 beforeAll(async () => {
   await migrate();
   await seed();
@@ -117,6 +133,107 @@ describe("scoped message and review mutations", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    await server.close();
+  });
+
+  test("denies replay while a linked review is pending or rejected", async () => {
+    const pendingId = await createNeedsReviewMessage();
+    const rejectedId = await createNeedsReviewMessage();
+    await sql`
+      INSERT INTO review_items (id, scope_id, organization_id, message_id, kind)
+      VALUES
+        (${`review-${randomUUID()}`}, ${scope.scopeId}, ${scope.organizationId}, ${pendingId}, 'checksum_conflict'),
+        (${`review-${randomUUID()}`}, ${scope.scopeId}, ${scope.organizationId}, ${rejectedId}, 'checksum_conflict')
+    `;
+    await sql`
+      UPDATE review_items
+      SET state = 'rejected', resolved_at = now()
+      WHERE message_id = ${rejectedId}
+    `;
+    const server = buildServer();
+
+    const pendingResponse = await server.inject({
+      method: "POST",
+      url: `/api/messages/${pendingId}/replay`,
+      headers: { authorization: `Lab ${token}` },
+    });
+    const rejectedResponse = await server.inject({
+      method: "POST",
+      url: `/api/messages/${rejectedId}/replay`,
+      headers: { authorization: `Lab ${token}` },
+    });
+
+    expect(pendingResponse.statusCode).toBe(409);
+    expect(rejectedResponse.statusCode).toBe(409);
+    expect(
+      Array.from(
+        await sql<{ id: string; state: string }[]>`
+          SELECT id, state
+          FROM ingestion_messages
+          WHERE id IN (${pendingId}, ${rejectedId})
+          ORDER BY id
+        `,
+      ).map((message) => message.state),
+    ).toEqual(["needs_review", "needs_review"]);
+    await server.close();
+  });
+
+  test("replays a needs-review message after every review approval and mapping check", async () => {
+    const messageId = await createNeedsReviewMessage();
+    await sql`
+      INSERT INTO review_items (id, scope_id, organization_id, message_id, kind, state, resolved_at)
+      VALUES (
+        ${`review-${randomUUID()}`},
+        ${scope.scopeId},
+        ${scope.organizationId},
+        ${messageId},
+        'checksum_conflict',
+        'approved',
+        now()
+      )
+    `;
+    const server = buildServer();
+    const response = await server.inject({
+      method: "POST",
+      url: `/api/messages/${messageId}/replay`,
+      headers: { authorization: `Lab ${token}` },
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(
+      Array.from(
+        await sql<{ state: string }[]>`
+          SELECT state FROM ingestion_messages WHERE id = ${messageId}
+        `,
+      ),
+    ).toEqual([{ state: "received" }]);
+    await server.close();
+  });
+
+  test("denies an approved review message when its mapping is still absent", async () => {
+    const messageId = await createNeedsReviewMessage(
+      `unmapped-${randomUUID()}`,
+    );
+    await sql`
+      INSERT INTO review_items (id, scope_id, organization_id, message_id, kind, state, resolved_at)
+      VALUES (
+        ${`review-${randomUUID()}`},
+        ${scope.scopeId},
+        ${scope.organizationId},
+        ${messageId},
+        'event_mapping',
+        'approved',
+        now()
+      )
+    `;
+    const server = buildServer();
+    const response = await server.inject({
+      method: "POST",
+      url: `/api/messages/${messageId}/replay`,
+      headers: { authorization: `Lab ${token}` },
+    });
+
+    expect(response.statusCode).toBe(409);
     await server.close();
   });
 

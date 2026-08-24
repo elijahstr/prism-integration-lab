@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import type { ProviderEnvelope } from "../../../../packages/contracts/src/provider-envelope";
 import { acceptMessage } from "../../../../packages/database/src/ingestion";
@@ -89,6 +89,19 @@ async function ensureBoxGridMapping(): Promise<void> {
   `;
 }
 
+async function dropConflictRaceTrigger(): Promise<void> {
+  const triggers = await sql`
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'prism_test_pause_conflict_race'
+      AND NOT tgisinternal
+  `;
+
+  if (triggers.length !== 0) {
+    await sql`DROP TRIGGER prism_test_pause_conflict_race ON ingestion_messages`;
+  }
+}
+
 beforeAll(async () => {
   await migrate();
   await seed();
@@ -98,9 +111,159 @@ beforeAll(async () => {
     WHERE scope_id = ${scope.scopeId}
       AND provider = 'boxgrid'
   `;
+  await sql`
+    CREATE OR REPLACE FUNCTION prism_test_pause_conflict_race()
+    RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+      IF (
+        NEW.delivery_id LIKE 'conflict-first-%'
+        AND NEW.state = 'needs_review'
+      ) OR (
+        NEW.delivery_id LIKE 'worker-first-%'
+        AND NEW.state = 'processing'
+      ) THEN
+        PERFORM pg_sleep(0.15);
+      END IF;
+
+      RETURN NEW;
+    END;
+    $$;
+  `;
+  await dropConflictRaceTrigger();
+  await sql`
+    CREATE TRIGGER prism_test_pause_conflict_race
+    BEFORE UPDATE OF state ON ingestion_messages
+    FOR EACH ROW
+    EXECUTE FUNCTION prism_test_pause_conflict_race()
+  `;
+});
+
+afterAll(async () => {
+  await dropConflictRaceTrigger();
+  await sql`DROP FUNCTION IF EXISTS prism_test_pause_conflict_race()`;
 });
 
 describe("message processing", () => {
+  test("keeps the conflicting payload out when conflict locks the delivery first", async () => {
+    const deliveryId = `conflict-first-${crypto.randomUUID()}`;
+    const accepted = await acceptMessage(scope, encoreEnvelopeFor(deliveryId));
+    const before = await sql<
+      [{ soldTickets: number; grossSalesCents: string }]
+    >`
+      SELECT
+        sold_tickets AS "soldTickets",
+        gross_sales_cents AS "grossSalesCents"
+      FROM ticket_facts
+      WHERE scope_id = ${scope.scopeId}
+        AND show_id = 'show-northstar-summer-hall'
+        AND provider = 'encoretix'
+        AND currency = 'USD'
+    `;
+    const conflict = {
+      ...encoreEnvelopeFor(deliveryId),
+      checksum: `sha256:conflict-${deliveryId}`,
+      payload: {
+        effects: [{ amountDeltaCents: 9900, kind: "sale", ticketDelta: 99 }],
+      },
+    };
+
+    const conflictResult = acceptMessage(scope, conflict);
+    await Bun.sleep(25);
+    const processingResult = processMessage(accepted.messageId);
+
+    await Promise.all([conflictResult, processingResult]);
+
+    expect(
+      Array.from(
+        await sql<[{ state: string }]>`
+          SELECT state FROM ingestion_messages WHERE id = ${accepted.messageId}
+        `,
+      ),
+    ).toEqual([{ state: "needs_review" }]);
+    expect(
+      await sql<[{ soldTickets: number; grossSalesCents: string }]>`
+        SELECT
+          sold_tickets AS "soldTickets",
+          gross_sales_cents AS "grossSalesCents"
+        FROM ticket_facts
+        WHERE scope_id = ${scope.scopeId}
+          AND show_id = 'show-northstar-summer-hall'
+          AND provider = 'encoretix'
+          AND currency = 'USD'
+      `,
+    ).toEqual(before);
+  });
+
+  test("keeps prior facts and applied state when processing locks the delivery first", async () => {
+    const deliveryId = `worker-first-${crypto.randomUUID()}`;
+    const accepted = await acceptMessage(scope, encoreEnvelopeFor(deliveryId));
+    const before = await sql<
+      [{ soldTickets: number; grossSalesCents: string }]
+    >`
+      SELECT
+        sold_tickets AS "soldTickets",
+        gross_sales_cents AS "grossSalesCents"
+      FROM ticket_facts
+      WHERE scope_id = ${scope.scopeId}
+        AND show_id = 'show-northstar-summer-hall'
+        AND provider = 'encoretix'
+        AND currency = 'USD'
+    `;
+    const conflict = {
+      ...encoreEnvelopeFor(deliveryId),
+      checksum: `sha256:conflict-${deliveryId}`,
+      payload: {
+        effects: [{ amountDeltaCents: 9900, kind: "sale", ticketDelta: 99 }],
+      },
+    };
+
+    const processingResult = processMessage(accepted.messageId);
+    await Bun.sleep(25);
+    const conflictResult = acceptMessage(scope, conflict);
+
+    await Promise.all([processingResult, conflictResult]);
+
+    expect(
+      Array.from(
+        await sql<[{ state: string }]>`
+          SELECT state FROM ingestion_messages WHERE id = ${accepted.messageId}
+        `,
+      ),
+    ).toEqual([{ state: "applied" }]);
+    expect(
+      Array.from(
+        await sql<[{ soldTickets: number; grossSalesCents: string }]>`
+          SELECT
+            sold_tickets AS "soldTickets",
+            gross_sales_cents AS "grossSalesCents"
+          FROM ticket_facts
+          WHERE scope_id = ${scope.scopeId}
+            AND show_id = 'show-northstar-summer-hall'
+            AND provider = 'encoretix'
+            AND currency = 'USD'
+        `,
+      ),
+    ).toEqual([
+      {
+        grossSalesCents: String(Number(before[0]!.grossSalesCents) + 700),
+        soldTickets: before[0]!.soldTickets + 3,
+      },
+    ]);
+    expect(
+      Array.from(
+        await sql<[{ count: string }]>`
+          SELECT count(*)::text AS count
+          FROM review_items
+          WHERE message_id = ${accepted.messageId}
+            AND kind = 'checksum_conflict'
+            AND state = 'pending'
+        `,
+      ),
+    ).toEqual([{ count: "1" }]);
+  });
+
   test("records an incomplete snapshot without changing provider facts", async () => {
     const deliveryId = `incomplete-snapshot-${crypto.randomUUID()}`;
     const accepted = await acceptMessage(scope, {

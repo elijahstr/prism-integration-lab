@@ -80,8 +80,8 @@ function toEnvelope(message: StoredMessage): ProviderEnvelope {
   };
 }
 
-function isTerminal(state: string): boolean {
-  return ["applied", "ignored_old", "needs_review"].includes(state);
+function isProcessable(state: string): boolean {
+  return ["processing", "queued", "received"].includes(state);
 }
 
 async function writeAudit(
@@ -325,7 +325,7 @@ export async function processMessage(
       throw new Error("Ingestion message does not exist");
     }
 
-    if (isTerminal(message.state)) {
+    if (!isProcessable(message.state)) {
       return "already_processed";
     }
 

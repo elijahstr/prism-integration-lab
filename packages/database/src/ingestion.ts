@@ -108,13 +108,16 @@ export async function acceptMessage(
     `;
 
     if (inserted.length === 0) {
-      const duplicates = await transaction<{ checksum: string; id: string }[]>`
-        SELECT id, checksum
+      const duplicates = await transaction<
+        { checksum: string; id: string; state: string }[]
+      >`
+        SELECT id, checksum, state
         FROM ingestion_messages
         WHERE scope_id = ${scope.scopeId}
           AND organization_id = ${scope.organizationId}
           AND provider = ${envelope.provider}
           AND delivery_id = ${envelope.deliveryId}
+        FOR UPDATE
       `;
 
       const duplicate = duplicates[0];
@@ -127,13 +130,15 @@ export async function acceptMessage(
         return { status: "duplicate", messageId: duplicate.id };
       }
 
-      await transaction`
-        UPDATE ingestion_messages
-        SET state = 'needs_review'
-        WHERE scope_id = ${scope.scopeId}
-          AND organization_id = ${scope.organizationId}
-          AND id = ${duplicate.id}
-      `;
+      if (duplicate.state !== "applied") {
+        await transaction`
+          UPDATE ingestion_messages
+          SET state = 'needs_review'
+          WHERE scope_id = ${scope.scopeId}
+            AND organization_id = ${scope.organizationId}
+            AND id = ${duplicate.id}
+        `;
+      }
       const details = {
         firstChecksum: duplicate.checksum,
         repeatedChecksum: envelope.checksum,
@@ -182,13 +187,28 @@ export async function acceptMessage(
   });
 }
 
+export type ReplayMessageResult = "not_found" | "not_ready" | "replayed";
+
+type ReplayableMessage = {
+  connectionId: string;
+  externalEventId: string;
+  id: string;
+  provider: string;
+  state: string;
+};
+
 export async function replayMessage(
   scope: Scope,
   messageId: string,
-): Promise<boolean> {
+): Promise<ReplayMessageResult> {
   return sql.begin(async (transaction) => {
-    const messages = await transaction<{ id: string }[]>`
-      SELECT id
+    const messages = await transaction<ReplayableMessage[]>`
+      SELECT
+        id,
+        state,
+        connection_id AS "connectionId",
+        external_event_id AS "externalEventId",
+        provider
       FROM ingestion_messages
       WHERE id = ${messageId}
         AND organization_id = ${scope.organizationId}
@@ -197,7 +217,44 @@ export async function replayMessage(
     `;
 
     if (messages.length !== 1) {
-      return false;
+      return "not_found";
+    }
+
+    const message = messages[0]!;
+
+    if (message.state !== "failed" && message.state !== "needs_review") {
+      return "not_ready";
+    }
+
+    if (message.state === "needs_review") {
+      const blockedReviews = await transaction`
+        SELECT 1
+        FROM review_items
+        WHERE message_id = ${message.id}
+          AND organization_id = ${scope.organizationId}
+          AND scope_id = ${scope.scopeId}
+          AND state <> 'approved'
+        LIMIT 1
+      `;
+
+      if (blockedReviews.length !== 0) {
+        return "not_ready";
+      }
+
+      const mappings = await transaction`
+        SELECT 1
+        FROM event_mappings
+        WHERE scope_id = ${scope.scopeId}
+          AND organization_id = ${scope.organizationId}
+          AND connection_id = ${message.connectionId}
+          AND provider = ${message.provider}
+          AND external_event_id = ${message.externalEventId}
+          AND state = 'confirmed'
+      `;
+
+      if (mappings.length !== 1) {
+        return "not_ready";
+      }
     }
 
     await transaction`
@@ -232,7 +289,7 @@ export async function replayMessage(
       )
     `;
 
-    return true;
+    return "replayed";
   });
 }
 
