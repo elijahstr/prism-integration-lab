@@ -643,10 +643,28 @@ export function DashboardPage({
     new DashboardLoadCoordinator<DashboardSession>(),
   );
 
-  const refresh = useCallback(async (token: string) => {
-    const nextData = await loadDashboard(token);
-    setData(nextData);
-  }, []);
+  const refresh = useCallback(
+    (token: string, organizationSlug: string) =>
+      loadCoordinatorRef.current.refresh(
+        organizationSlug,
+        () => loadDashboard(token),
+        {
+          error: (reason) => {
+            if (reason instanceof LabSessionExpiredError) {
+              clearLabToken(window.sessionStorage, organizationSlug);
+            }
+            setError(reason.message);
+          },
+          loading: () => {
+            setError(null);
+          },
+          success: (nextData) => {
+            setData(nextData);
+          },
+        },
+      ),
+    [],
+  );
 
   const startSession = useCallback((state: DashboardRouteState) => {
     loadCoordinatorRef.current.start(
@@ -668,6 +686,7 @@ export function DashboardPage({
         loading: () => {
           setData(null);
           setError(null);
+          setPendingAction(null);
           setRun(null);
         },
         success: (session) => {
@@ -690,9 +709,13 @@ export function DashboardPage({
 
   const activeToken = () =>
     readLabToken(window.sessionStorage, routeState.organizationSlug);
+  const isCurrentOrganization = (organizationSlug: string) =>
+    loadCoordinatorRef.current.isCurrentOrganization(organizationSlug);
 
   const replaceRouteState = (nextState: DashboardRouteState) => {
-    loadCoordinatorRef.current.invalidate();
+    if (nextState.organizationSlug !== routeState.organizationSlug) {
+      loadCoordinatorRef.current.invalidate();
+    }
     window.history.replaceState(
       null,
       "",
@@ -702,6 +725,7 @@ export function DashboardPage({
   };
 
   async function reviewAction(review: ReviewDto, action: "approve" | "reject") {
+    const organizationSlug = routeState.organizationSlug;
     const token = activeToken();
     const unavailableMessage = unavailableSessionMessage(token);
     if (!token) {
@@ -715,21 +739,27 @@ export function DashboardPage({
       await (action === "approve"
         ? approveReview(token, review.id)
         : rejectReview(token, review.id));
-      await refresh(token);
+      await refresh(token, organizationSlug);
     } catch (reason) {
+      if (!isCurrentOrganization(organizationSlug)) {
+        return;
+      }
       if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage, routeState.organizationSlug);
+        clearLabToken(window.sessionStorage, organizationSlug);
       }
       setError(
         reason instanceof Error ? reason.message : "The review action failed.",
       );
     } finally {
-      setPendingAction(null);
-      focusActionResult(document);
+      if (isCurrentOrganization(organizationSlug)) {
+        setPendingAction(null);
+        focusActionResult(document);
+      }
     }
   }
 
   async function runScenario(scenario: ScenarioId) {
+    const organizationSlug = routeState.organizationSlug;
     const token = activeToken();
     const unavailableMessage = unavailableSessionMessage(token);
     if (!token) {
@@ -749,25 +779,36 @@ export function DashboardPage({
         ScenarioRunDtoSchema,
         { method: "POST" },
       );
+      if (!isCurrentOrganization(organizationSlug)) {
+        return;
+      }
       setRun(nextRun);
       replaceRouteState(withScenarioRun(routeState, nextRun.id));
-      await refresh(token);
-      setLabStatus("Scenario completed. The processing trace is available.");
+      await refresh(token, organizationSlug);
+      if (isCurrentOrganization(organizationSlug)) {
+        setLabStatus("Scenario completed. The processing trace is available.");
+      }
     } catch (reason) {
+      if (!isCurrentOrganization(organizationSlug)) {
+        return;
+      }
       if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage, routeState.organizationSlug);
+        clearLabToken(window.sessionStorage, organizationSlug);
       }
       setError(
         reason instanceof Error ? reason.message : "The scenario failed.",
       );
       setLabStatus("Scenario failed. Check the dashboard message.");
     } finally {
-      setPendingAction(null);
-      focusActionResult(document);
+      if (isCurrentOrganization(organizationSlug)) {
+        setPendingAction(null);
+        focusActionResult(document);
+      }
     }
   }
 
   async function resetRun() {
+    const organizationSlug = routeState.organizationSlug;
     const token = activeToken();
     if (!run) return;
     const unavailableMessage = unavailableSessionMessage(token);
@@ -786,22 +827,33 @@ export function DashboardPage({
         { parse: (value) => value },
         { method: "POST" },
       );
+      if (!isCurrentOrganization(organizationSlug)) {
+        return;
+      }
       setRun(null);
       replaceRouteState({ ...routeState, runId: null });
-      await refresh(token);
-      setLabStatus("Scenario reset. You can select another scenario.");
+      await refresh(token, organizationSlug);
+      if (isCurrentOrganization(organizationSlug)) {
+        setLabStatus("Scenario reset. You can select another scenario.");
+      }
     } catch (reason) {
+      if (!isCurrentOrganization(organizationSlug)) {
+        return;
+      }
       if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage, routeState.organizationSlug);
+        clearLabToken(window.sessionStorage, organizationSlug);
       }
       setError(reason instanceof Error ? reason.message : "The reset failed.");
     } finally {
-      setPendingAction(null);
-      focusActionResult(document);
+      if (isCurrentOrganization(organizationSlug)) {
+        setPendingAction(null);
+        focusActionResult(document);
+      }
     }
   }
 
   async function replayMessage(message: MessageDto) {
+    const organizationSlug = routeState.organizationSlug;
     const token = activeToken();
     const unavailableMessage = unavailableSessionMessage(token);
     if (!token) {
@@ -813,15 +865,20 @@ export function DashboardPage({
     setPendingAction(message.id);
     try {
       await requestMessageReplay(token, message.id);
-      await refresh(token);
+      await refresh(token, organizationSlug);
     } catch (reason) {
+      if (!isCurrentOrganization(organizationSlug)) {
+        return;
+      }
       if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage, routeState.organizationSlug);
+        clearLabToken(window.sessionStorage, organizationSlug);
       }
       setError(reason instanceof Error ? reason.message : "The replay failed.");
     } finally {
-      setPendingAction(null);
-      focusActionResult(document);
+      if (isCurrentOrganization(organizationSlug)) {
+        setPendingAction(null);
+        focusActionResult(document);
+      }
     }
   }
 

@@ -19,6 +19,168 @@ async function settle(): Promise<void> {
 }
 
 describe("dashboard load coordination", () => {
+  test("keeps Harborlight data when a Northstar refresh finishes after the organization load", async () => {
+    const northstarRefresh = deferred<{
+      organization: string;
+      run: string | null;
+    }>();
+    const harborlightLoad = deferred<{
+      organization: string;
+      run: string | null;
+    }>();
+    const coordinator = new DashboardLoadCoordinator<{
+      organization: string;
+      run: string | null;
+    }>();
+    const state: { data: string | null; error: string | null } = {
+      data: "northstar-presents",
+      error: null,
+    };
+    const handlers = {
+      error: (error: Error) => {
+        state.error = error.message;
+      },
+      loading: () => undefined,
+      success: (result: { organization: string; run: string | null }) => {
+        state.data = result.organization;
+      },
+    };
+
+    coordinator.start(
+      "northstar-presents",
+      async () => ({ organization: "northstar-presents", run: null }),
+      handlers,
+    );
+    await settle();
+    coordinator.refresh(
+      "northstar-presents",
+      () => northstarRefresh.promise,
+      handlers,
+    );
+    coordinator.start(
+      "harborlight-live",
+      () => harborlightLoad.promise,
+      handlers,
+    );
+
+    harborlightLoad.resolve({
+      organization: "harborlight-live",
+      run: "run-harbor",
+    });
+    await settle();
+    northstarRefresh.resolve({
+      organization: "northstar-presents",
+      run: null,
+    });
+    await settle();
+
+    expect(state).toEqual({ data: "harborlight-live", error: null });
+  });
+
+  test("does not show a stale Northstar refresh error after Harborlight loads", async () => {
+    const northstarRefresh = deferred<{
+      organization: string;
+      run: string | null;
+    }>();
+    const harborlightLoad = deferred<{
+      organization: string;
+      run: string | null;
+    }>();
+    const coordinator = new DashboardLoadCoordinator<{
+      organization: string;
+      run: string | null;
+    }>();
+    const state: { data: string | null; error: string | null } = {
+      data: "northstar-presents",
+      error: null,
+    };
+    const handlers = {
+      error: (error: Error) => {
+        state.error = error.message;
+      },
+      loading: () => undefined,
+      success: (result: { organization: string; run: string | null }) => {
+        state.data = result.organization;
+      },
+    };
+
+    coordinator.start(
+      "northstar-presents",
+      async () => ({ organization: "northstar-presents", run: null }),
+      handlers,
+    );
+    await settle();
+    coordinator.refresh(
+      "northstar-presents",
+      () => northstarRefresh.promise,
+      handlers,
+    );
+    coordinator.start(
+      "harborlight-live",
+      () => harborlightLoad.promise,
+      handlers,
+    );
+
+    harborlightLoad.resolve({
+      organization: "harborlight-live",
+      run: "run-harbor",
+    });
+    await settle();
+    northstarRefresh.reject(new Error("Northstar refresh failed"));
+    await settle();
+
+    expect(state).toEqual({ data: "harborlight-live", error: null });
+  });
+
+  test("keeps a Harborlight load current when an old Northstar action requests a refresh", async () => {
+    const harborlightLoad = deferred<{
+      organization: string;
+      run: string | null;
+    }>();
+    const coordinator = new DashboardLoadCoordinator<{
+      organization: string;
+      run: string | null;
+    }>();
+    const state: { data: string | null; error: string | null } = {
+      data: "northstar-presents",
+      error: null,
+    };
+    const handlers = {
+      error: (error: Error) => {
+        state.error = error.message;
+      },
+      loading: () => undefined,
+      success: (result: { organization: string; run: string | null }) => {
+        state.data = result.organization;
+      },
+    };
+
+    coordinator.start(
+      "northstar-presents",
+      async () => ({ organization: "northstar-presents", run: null }),
+      handlers,
+    );
+    await settle();
+    coordinator.start(
+      "harborlight-live",
+      () => harborlightLoad.promise,
+      handlers,
+    );
+    coordinator.refresh(
+      "northstar-presents",
+      async () => ({ organization: "northstar-presents", run: null }),
+      handlers,
+    );
+
+    harborlightLoad.resolve({
+      organization: "harborlight-live",
+      run: "run-harbor",
+    });
+    await settle();
+
+    expect(state).toEqual({ data: "harborlight-live", error: null });
+  });
+
   test("keeps Harborlight data when a slow Northstar load finishes last", async () => {
     const northstar = deferred<{ organization: string; run: string | null }>();
     const harborlight = deferred<{

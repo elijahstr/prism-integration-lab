@@ -22,16 +22,40 @@ export class DashboardLoadCoordinator<TResult> {
     this.#organizationSlug = null;
   }
 
+  isCurrentOrganization(organizationSlug: string): boolean {
+    return this.#organizationSlug === organizationSlug;
+  }
+
   start(
     organizationSlug: string,
     load: () => Promise<TResult>,
     handlers: LoadHandlers<TResult>,
-  ): void {
-    const generation = ++this.#generation;
+  ): Promise<void> {
     this.#organizationSlug = organizationSlug;
+    return this.#run(organizationSlug, load, handlers);
+  }
+
+  refresh<TRefreshResult>(
+    organizationSlug: string,
+    load: () => Promise<TRefreshResult>,
+    handlers: LoadHandlers<TRefreshResult>,
+  ): Promise<void> {
+    if (this.#organizationSlug !== organizationSlug) {
+      return Promise.resolve();
+    }
+
+    return this.#run(organizationSlug, load, handlers);
+  }
+
+  #run<TLoadResult>(
+    organizationSlug: string,
+    load: () => Promise<TLoadResult>,
+    handlers: LoadHandlers<TLoadResult>,
+  ): Promise<void> {
+    const generation = ++this.#generation;
     handlers.loading(organizationSlug);
 
-    void load()
+    return load()
       .then((result) => {
         if (!this.#isCurrent(generation, organizationSlug)) {
           return;
