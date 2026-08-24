@@ -1,6 +1,8 @@
 import {
   LabSessionDtoSchema,
+  ScenarioRunDtoSchema,
   type LabSessionDto,
+  type ScenarioRunDto,
   type ScenarioId,
 } from "@prism/contracts";
 
@@ -95,6 +97,20 @@ export function replayMessage(
   fetcher?: Fetcher,
 ): Promise<void> {
   return postAction(token, `/api/messages/${messageId}/replay`, fetcher);
+}
+
+export function getScenarioRun(
+  token: string,
+  runId: string,
+  fetcher?: Fetcher,
+): Promise<ScenarioRunDto> {
+  return dashboardRequest(
+    token,
+    `/api/lab/runs/${runId}`,
+    ScenarioRunDtoSchema,
+    {},
+    fetcher,
+  );
 }
 
 export function runScenario(

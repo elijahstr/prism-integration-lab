@@ -1,4 +1,4 @@
-export const labSessionStorageKey = "prism.integration-lab.session.v1";
+const labSessionStoragePrefix = "prism.integration-lab.session.v1";
 
 export type SessionStorageLike = {
   getItem(key: string): string | null;
@@ -12,11 +12,19 @@ export class LabSessionExpiredError extends Error {
   }
 }
 
-export function readLabToken(storage: SessionStorageLike): string | null {
-  const token = storage.getItem(labSessionStorageKey);
+export function labSessionStorageKey(organizationSlug: string): string {
+  return `${labSessionStoragePrefix}.${organizationSlug}`;
+}
+
+export function readLabToken(
+  storage: SessionStorageLike,
+  organizationSlug: string,
+): string | null {
+  const key = labSessionStorageKey(organizationSlug);
+  const token = storage.getItem(key);
 
   if (!token?.trim()) {
-    storage.removeItem(labSessionStorageKey);
+    storage.removeItem(key);
     return null;
   }
 
@@ -25,25 +33,30 @@ export function readLabToken(storage: SessionStorageLike): string | null {
 
 export function writeLabToken(
   storage: SessionStorageLike,
+  organizationSlug: string,
   token: string,
 ): void {
-  storage.setItem(labSessionStorageKey, token);
+  storage.setItem(labSessionStorageKey(organizationSlug), token);
 }
 
-export function clearLabToken(storage: SessionStorageLike): void {
-  storage.removeItem(labSessionStorageKey);
+export function clearLabToken(
+  storage: SessionStorageLike,
+  organizationSlug: string,
+): void {
+  storage.removeItem(labSessionStorageKey(organizationSlug));
 }
 
 export async function readWithLabSession<T>(
   storage: SessionStorageLike,
+  organizationSlug: string,
   createToken: () => Promise<string>,
   read: (token: string) => Promise<T>,
 ): Promise<T> {
-  const storedToken = readLabToken(storage);
+  const storedToken = readLabToken(storage, organizationSlug);
 
   if (!storedToken) {
     const token = await createToken();
-    writeLabToken(storage, token);
+    writeLabToken(storage, organizationSlug, token);
     return read(token);
   }
 
@@ -55,15 +68,15 @@ export async function readWithLabSession<T>(
     }
   }
 
-  clearLabToken(storage);
+  clearLabToken(storage, organizationSlug);
   const replacementToken = await createToken();
-  writeLabToken(storage, replacementToken);
+  writeLabToken(storage, organizationSlug, replacementToken);
 
   try {
     return await read(replacementToken);
   } catch (error) {
     if (error instanceof LabSessionExpiredError) {
-      clearLabToken(storage);
+      clearLabToken(storage, organizationSlug);
     }
     throw error;
   }

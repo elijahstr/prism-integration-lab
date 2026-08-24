@@ -4,6 +4,7 @@ import {
   approveReview,
   createLabSession,
   dashboardRequest,
+  getScenarioRun,
   rejectReview,
   replayMessage,
   resetScenarioRun,
@@ -30,6 +31,26 @@ function recordingFetch(calls: RecordedCall[]) {
 }
 
 describe("dashboard API actions", () => {
+  test("loads a scoped scenario trace for URL restoration", async () => {
+    const calls: RecordedCall[] = [];
+
+    await getScenarioRun("token-123", "run-123", async (input, init) => {
+      calls.push({ init, path: input.toString() });
+      return response({
+        id: "run-123",
+        scenario: "provider_change",
+        state: "applied",
+        trace: [],
+      });
+    });
+
+    expect(calls[0]?.path).toBe("/api/lab/runs/run-123");
+    expect(calls[0]?.init?.method).toBeUndefined();
+    expect(new Headers(calls[0]?.init?.headers).get("authorization")).toBe(
+      "Lab token-123",
+    );
+  });
+
   test("keeps RequestInit headers while it adds the lab authorization", async () => {
     const calls: RecordedCall[] = [];
 

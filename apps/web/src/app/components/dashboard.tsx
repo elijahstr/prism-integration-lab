@@ -23,6 +23,7 @@ import {
   approveReview,
   createLabSession,
   dashboardRequest,
+  getScenarioRun,
   rejectReview,
   replayMessage as requestMessageReplay,
 } from "../lib/api";
@@ -36,9 +37,20 @@ import {
   clearLabToken,
   LabSessionExpiredError,
   readLabToken,
-  readWithLabSession,
 } from "../lib/session";
-import { actionErrorMessage, focusActionResult } from "../lib/ui-state";
+import { loadDashboardSession } from "../lib/dashboard-session";
+import {
+  dashboardHref,
+  dashboardLocation,
+  switchOrganization,
+  type DashboardRouteState,
+  withScenarioRun,
+} from "../lib/navigation";
+import {
+  actionErrorMessage,
+  focusActionResult,
+  unavailableSessionMessage,
+} from "../lib/ui-state";
 import { DashboardShell, type DashboardPageName } from "./dashboard-shell";
 
 type DashboardData = {
@@ -53,6 +65,13 @@ const organizations = [
   { label: "Northstar Presents", slug: "northstar-presents" },
   { label: "Harborlight Live", slug: "harborlight-live" },
 ] as const;
+const organizationSlugs = organizations.map(
+  (organization) => organization.slug,
+);
+const defaultRouteState: DashboardRouteState = {
+  organizationSlug: organizations[0].slug,
+  runId: null,
+};
 
 const scenarios: Array<{
   description: string;
@@ -155,7 +174,13 @@ function LoadingPanel({ error }: { error: string | null }) {
   );
 }
 
-function Overview({ data }: { data: DashboardData }) {
+function Overview({
+  data,
+  routeState,
+}: {
+  data: DashboardData;
+  routeState: DashboardRouteState;
+}) {
   return (
     <>
       <div className="report-grid">
@@ -187,7 +212,7 @@ function Overview({ data }: { data: DashboardData }) {
               <p className="eyebrow">Connection health</p>
               <h2>Provider checks</h2>
             </div>
-            <a href="/providers">View providers</a>
+            <a href={dashboardHref("/providers", routeState)}>View providers</a>
           </div>
           <table>
             <caption>Provider health for this demo session</caption>
@@ -219,7 +244,7 @@ function Overview({ data }: { data: DashboardData }) {
               <p className="eyebrow">Immutable input</p>
               <h2>Recent activity</h2>
             </div>
-            <a href="/integration-lab">Open lab</a>
+            <a href={dashboardHref("/integration-lab", routeState)}>Open lab</a>
           </div>
           <table>
             <caption>Latest received provider messages</caption>
@@ -596,9 +621,8 @@ export function DashboardPage({
 }: {
   page: Exclude<DashboardPageName, "ingestion">;
 }) {
-  const [organizationSlug, setOrganizationSlug] = useState<string>(
-    organizations[0].slug,
-  );
+  const [routeState, setRouteState] =
+    useState<DashboardRouteState>(defaultRouteState);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [labStatus, setLabStatus] = useState("No scenario has run.");
@@ -610,39 +634,58 @@ export function DashboardPage({
     setData(nextData);
   }, []);
 
-  const startSession = useCallback(
-    async (slug: string) => {
-      setData(null);
-      setError(null);
-      setRun(null);
-      try {
-        const nextData = await readWithLabSession(
-          window.sessionStorage,
-          async () => (await createLabSession(slug)).token,
-          loadDashboard,
-        );
-        setData(nextData);
-      } catch (reason) {
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "The demo session could not start.",
-        );
-      }
-    },
-    [refresh],
-  );
+  const startSession = useCallback(async (state: DashboardRouteState) => {
+    setData(null);
+    setError(null);
+    setRun(null);
+    try {
+      const session = await loadDashboardSession({
+        createToken: async () =>
+          (await createLabSession(state.organizationSlug)).token,
+        loadDashboard,
+        loadRun: getScenarioRun,
+        organizationSlug: state.organizationSlug,
+        runId: state.runId,
+        storage: window.sessionStorage,
+      });
+      setData(session.dashboard);
+      setRun(session.run);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "The demo session could not start.",
+      );
+    }
+  }, []);
 
   useEffect(() => {
-    void startSession(organizationSlug);
-  }, [organizationSlug, startSession]);
+    const nextState = dashboardLocation(
+      window.location.search,
+      organizationSlugs,
+      defaultRouteState.organizationSlug,
+    );
+    setRouteState(nextState);
+    void startSession(nextState);
+  }, [startSession]);
 
-  const activeToken = () => readLabToken(window.sessionStorage);
+  const activeToken = () =>
+    readLabToken(window.sessionStorage, routeState.organizationSlug);
+
+  const replaceRouteState = (nextState: DashboardRouteState) => {
+    window.history.replaceState(
+      null,
+      "",
+      dashboardHref(window.location.pathname, nextState),
+    );
+    setRouteState(nextState);
+  };
 
   async function reviewAction(review: ReviewDto, action: "approve" | "reject") {
     const token = activeToken();
+    const unavailableMessage = unavailableSessionMessage(token);
     if (!token) {
-      setError("The lab session is unavailable. Reload this page.");
+      setError(unavailableMessage);
       focusActionResult(document);
       return;
     }
@@ -655,7 +698,7 @@ export function DashboardPage({
       await refresh(token);
     } catch (reason) {
       if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage);
+        clearLabToken(window.sessionStorage, routeState.organizationSlug);
       }
       setError(
         reason instanceof Error ? reason.message : "The review action failed.",
@@ -668,8 +711,9 @@ export function DashboardPage({
 
   async function runScenario(scenario: ScenarioId) {
     const token = activeToken();
+    const unavailableMessage = unavailableSessionMessage(token);
     if (!token) {
-      setError("The lab session is unavailable. Reload this page.");
+      setError(unavailableMessage);
       focusActionResult(document);
       return;
     }
@@ -686,11 +730,12 @@ export function DashboardPage({
         { method: "POST" },
       );
       setRun(nextRun);
+      replaceRouteState(withScenarioRun(routeState, nextRun.id));
       await refresh(token);
       setLabStatus("Scenario completed. The processing trace is available.");
     } catch (reason) {
       if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage);
+        clearLabToken(window.sessionStorage, routeState.organizationSlug);
       }
       setError(
         reason instanceof Error ? reason.message : "The scenario failed.",
@@ -704,7 +749,13 @@ export function DashboardPage({
 
   async function resetRun() {
     const token = activeToken();
-    if (!token || !run) return;
+    if (!run) return;
+    const unavailableMessage = unavailableSessionMessage(token);
+    if (!token) {
+      setError(unavailableMessage);
+      focusActionResult(document);
+      return;
+    }
     setError(null);
     setPendingAction(run.id);
     setLabStatus("Resetting the scenario run.");
@@ -716,11 +767,12 @@ export function DashboardPage({
         { method: "POST" },
       );
       setRun(null);
+      replaceRouteState({ ...routeState, runId: null });
       await refresh(token);
       setLabStatus("Scenario reset. You can select another scenario.");
     } catch (reason) {
       if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage);
+        clearLabToken(window.sessionStorage, routeState.organizationSlug);
       }
       setError(reason instanceof Error ? reason.message : "The reset failed.");
     } finally {
@@ -731,8 +783,9 @@ export function DashboardPage({
 
   async function replayMessage(message: MessageDto) {
     const token = activeToken();
+    const unavailableMessage = unavailableSessionMessage(token);
     if (!token) {
-      setError("The lab session is unavailable. Reload this page.");
+      setError(unavailableMessage);
       focusActionResult(document);
       return;
     }
@@ -743,7 +796,7 @@ export function DashboardPage({
       await refresh(token);
     } catch (reason) {
       if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage);
+        clearLabToken(window.sessionStorage, routeState.organizationSlug);
       }
       setError(reason instanceof Error ? reason.message : "The replay failed.");
     } finally {
@@ -753,17 +806,18 @@ export function DashboardPage({
   }
 
   function changeOrganization(event: FormEvent<HTMLSelectElement>) {
-    clearLabToken(window.sessionStorage);
-    setOrganizationSlug(event.currentTarget.value);
+    const nextState = switchOrganization(routeState, event.currentTarget.value);
+    replaceRouteState(nextState);
+    void startSession(nextState);
   }
 
   const currentOrganization = organizations.find(
-    (organization) => organization.slug === organizationSlug,
+    (organization) => organization.slug === routeState.organizationSlug,
   )!;
   const content = !data ? (
     <LoadingPanel error={error} />
   ) : page === "overview" ? (
-    <Overview data={data} />
+    <Overview data={data} routeState={routeState} />
   ) : page === "providers" ? (
     <Providers data={data} />
   ) : page === "events" ? (
@@ -790,11 +844,12 @@ export function DashboardPage({
     <DashboardShell
       organization={currentOrganization.label}
       page={page}
+      routeState={routeState}
       topbarControl={
         <label className="organization-picker">
           <span>Demo organization</span>
           <select
-            value={organizationSlug}
+            value={routeState.organizationSlug}
             onChange={changeOrganization}
             aria-label="Demo organization"
           >

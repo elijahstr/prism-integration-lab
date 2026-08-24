@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { actionErrorMessage, focusActionResult } from "./ui-state";
+import {
+  actionErrorMessage,
+  focusActionResult,
+  unavailableSessionMessage,
+} from "./ui-state";
 
 describe("action feedback", () => {
   test("keeps an action error visible after dashboard data has loaded", () => {
@@ -22,5 +26,11 @@ describe("action feedback", () => {
     });
 
     expect(focusCalls).toBe(1);
+  });
+
+  test("uses the visible unavailable-session message for a reset with no token", () => {
+    expect(unavailableSessionMessage(null)).toBe(
+      "The lab session is unavailable. Reload this page.",
+    );
   });
 });

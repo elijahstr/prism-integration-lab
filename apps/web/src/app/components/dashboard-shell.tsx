@@ -1,4 +1,13 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
+
+import {
+  dashboardHref,
+  dashboardLocation,
+  type DashboardRouteState,
+} from "../lib/navigation";
 
 export type DashboardPageName =
   "events" | "ingestion" | "lab" | "overview" | "providers" | "reviews";
@@ -16,26 +25,56 @@ const navigation: Array<{
   { href: "/how-ingestion-works", id: "ingestion", label: "How it works" },
 ];
 
+const defaultRouteState: DashboardRouteState = {
+  organizationSlug: "northstar-presents",
+  runId: null,
+};
+const organizationSlugs = ["northstar-presents", "harborlight-live"];
+
 export function DashboardShell({
   children,
   organization,
   page,
+  routeState,
   sessionNote = "Each browser session uses its own temporary copy of seeded data.",
   topbarControl,
 }: {
   children: ReactNode;
   organization: string;
   page: DashboardPageName;
+  routeState?: DashboardRouteState;
   sessionNote?: string;
   topbarControl: ReactNode;
 }) {
+  const [navigationState, setNavigationState] = useState(
+    routeState ?? defaultRouteState,
+  );
   const pageTitle =
     navigation.find((item) => item.id === page)?.label ?? "Overview";
+
+  useEffect(() => {
+    if (routeState) {
+      setNavigationState(routeState);
+      return;
+    }
+
+    setNavigationState(
+      dashboardLocation(
+        window.location.search,
+        organizationSlugs,
+        defaultRouteState.organizationSlug,
+      ),
+    );
+  }, [routeState]);
 
   return (
     <div className="app-shell">
       <aside className="rail">
-        <a className="brand" href="/" aria-label="Prism Integration Lab home">
+        <a
+          className="brand"
+          href={dashboardHref("/", navigationState)}
+          aria-label="Prism Integration Lab home"
+        >
           <span>PRISM</span>
           <small>INTEGRATION LAB</small>
         </a>
@@ -44,7 +83,7 @@ export function DashboardShell({
             <a
               key={item.id}
               className={page === item.id ? "active" : ""}
-              href={item.href}
+              href={dashboardHref(item.href, navigationState)}
               aria-current={page === item.id ? "page" : undefined}
             >
               {item.label}

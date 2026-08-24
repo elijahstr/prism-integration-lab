@@ -9,6 +9,10 @@ export function actionErrorMessage(
   return error;
 }
 
+export function unavailableSessionMessage(token: string | null): string | null {
+  return token ? null : "The lab session is unavailable. Reload this page.";
+}
+
 export function focusActionResult(documentLike: FocusDocument): void {
   documentLike.getElementById("main-content")?.focus();
 }

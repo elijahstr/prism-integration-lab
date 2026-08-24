@@ -28,31 +28,45 @@ describe("lab token storage", () => {
   test("writes and reads only the current lab token", () => {
     const storage = memoryStorage();
 
-    writeLabToken(storage, "token-123");
+    writeLabToken(storage, "northstar-presents", "token-123");
 
-    expect(readLabToken(storage)).toBe("token-123");
+    expect(readLabToken(storage, "northstar-presents")).toBe("token-123");
   });
 
   test("rejects an empty stored token and clears it", () => {
-    const storage = memoryStorage({ "prism.integration-lab.session.v1": "" });
+    const storage = memoryStorage({
+      "prism.integration-lab.session.v1.northstar-presents": "",
+    });
 
-    expect(readLabToken(storage)).toBeNull();
-    expect(storage.getItem("prism.integration-lab.session.v1")).toBeNull();
+    expect(readLabToken(storage, "northstar-presents")).toBeNull();
+    expect(
+      storage.getItem("prism.integration-lab.session.v1.northstar-presents"),
+    ).toBeNull();
   });
 
   test("clears a stored lab token", () => {
     const storage = memoryStorage({
-      "prism.integration-lab.session.v1": "token-123",
+      "prism.integration-lab.session.v1.northstar-presents": "token-123",
     });
 
-    clearLabToken(storage);
+    clearLabToken(storage, "northstar-presents");
 
-    expect(readLabToken(storage)).toBeNull();
+    expect(readLabToken(storage, "northstar-presents")).toBeNull();
+  });
+
+  test("keeps an independent token for each fictional organization", () => {
+    const storage = memoryStorage();
+
+    writeLabToken(storage, "northstar-presents", "northstar-token");
+    writeLabToken(storage, "harborlight-live", "harborlight-token");
+
+    expect(readLabToken(storage, "northstar-presents")).toBe("northstar-token");
+    expect(readLabToken(storage, "harborlight-live")).toBe("harborlight-token");
   });
 
   test("replaces one expired token once and does not retry the replacement", async () => {
     const storage = memoryStorage({
-      "prism.integration-lab.session.v1": "expired-token",
+      "prism.integration-lab.session.v1.northstar-presents": "expired-token",
     });
     const reads: string[] = [];
     let created = 0;
@@ -60,6 +74,7 @@ describe("lab token storage", () => {
     await expect(
       readWithLabSession(
         storage,
+        "northstar-presents",
         async () => {
           created += 1;
           return "replacement-token";
@@ -76,6 +91,6 @@ describe("lab token storage", () => {
 
     expect(created).toBe(1);
     expect(reads).toEqual(["expired-token", "replacement-token"]);
-    expect(readLabToken(storage)).toBeNull();
+    expect(readLabToken(storage, "northstar-presents")).toBeNull();
   });
 });
