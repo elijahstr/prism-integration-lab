@@ -1,0 +1,10 @@
+{
+  "effects": [
+    {
+      "amountDeltaCents": 7500,
+      "kind": "sale",
+      "ticketDelta": 3
+    }
+  ],
+  "nextCursor": "cursor-43"
+}
