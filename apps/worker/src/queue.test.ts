@@ -1,13 +1,8 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
-import { bullMqConnection, getBullMqConnection, ingestionQueue } from "./queue";
+import { bullMqConnection, getBullMqConnection } from "./queue";
 
 describe("BullMQ connection", () => {
-  afterAll(async () => {
-    await ingestionQueue.close();
-    bullMqConnection.disconnect();
-  });
-
   test("returns one client to repeated consumers", () => {
     expect(getBullMqConnection()).toBe(bullMqConnection);
     expect(getBullMqConnection()).toBe(bullMqConnection);

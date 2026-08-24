@@ -2,6 +2,8 @@ import { createHmac } from "node:crypto";
 
 import postgres from "postgres";
 
+export type { TransactionSql } from "postgres";
+
 const databaseUrl =
   process.env.DATABASE_URL ??
   "postgres://prism:prism@localhost:5432/prism_integration_lab";

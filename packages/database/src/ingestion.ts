@@ -166,10 +166,27 @@ export async function claimOutbox(limit: number): Promise<OutboxRow[]> {
 }
 
 export async function markOutboxDispatched(id: string): Promise<void> {
-  await sql`
-    UPDATE ingestion_outbox
-    SET dispatched_at = now()
-    WHERE id = ${id}
-      AND dispatched_at IS NULL
-  `;
+  await sql.begin(async (transaction) => {
+    const dispatched = await transaction<
+      { messageId: string; scopeId: string }[]
+    >`
+      UPDATE ingestion_outbox
+      SET dispatched_at = now()
+      WHERE id = ${id}
+        AND dispatched_at IS NULL
+      RETURNING message_id AS "messageId", scope_id AS "scopeId"
+    `;
+
+    if (dispatched.length === 0) {
+      return;
+    }
+
+    await transaction`
+      UPDATE ingestion_messages
+      SET state = 'queued'
+      WHERE scope_id = ${dispatched[0]!.scopeId}
+        AND id = ${dispatched[0]!.messageId}
+        AND state = 'received'
+    `;
+  });
 }
