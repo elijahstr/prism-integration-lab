@@ -5,6 +5,7 @@ export * from "./cents";
 export * from "./encoretix/adapter";
 export * from "./encoretix/schema";
 export * from "./encoretix/signing";
+export * from "./fixtures/scenarios";
 export * from "./venuewave/adapter";
 export * from "./venuewave/schema";
 export * from "./venuewave/simulator";

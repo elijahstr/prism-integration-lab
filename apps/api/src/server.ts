@@ -2,6 +2,8 @@ import Fastify, { type FastifyInstance } from "fastify";
 
 import { sendError } from "./http/errors";
 import { MAX_WEBHOOK_BYTES } from "./http/raw-json";
+import { registerDashboardRoutes } from "./routes/dashboard";
+import { registerLabRoutes } from "./routes/lab";
 import { registerMessageRoutes } from "./routes/messages";
 import { registerReviewRoutes } from "./routes/reviews";
 import { registerWebhookRoutes } from "./routes/webhooks";
@@ -23,6 +25,8 @@ export function buildServer(): FastifyInstance {
   );
   server.setErrorHandler((error, _request, reply) => sendError(reply, error));
   registerWebhookRoutes(server);
+  registerDashboardRoutes(server);
+  registerLabRoutes(server);
   registerMessageRoutes(server);
   registerReviewRoutes(server);
 

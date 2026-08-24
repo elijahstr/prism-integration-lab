@@ -3,6 +3,7 @@ import { Worker } from "bullmq";
 import { sql } from "../../../packages/database/src/client";
 
 import { dispatchOutboxBatch } from "./jobs/dispatch-outbox";
+import { expireSessions } from "./jobs/expire-sessions";
 import { processQueueJob } from "./jobs/process-message";
 import { bullMqConnection, ingestionQueue } from "./queue";
 
@@ -16,6 +17,7 @@ export type WorkerRuntimeDependencies = {
   closeRedis(): Promise<void>;
   createWorker(): WorkerHandle;
   dispatch(): Promise<void>;
+  expireSessions(): Promise<unknown>;
 };
 
 export type WorkerRuntime = {
@@ -37,7 +39,8 @@ export function createWorkerRuntime(
     }
 
     dispatcher = dependencies
-      .dispatch()
+      .expireSessions()
+      .then(() => dependencies.dispatch())
       .catch((error: unknown) => {
         console.error("Outbox dispatch failed", error);
       })
@@ -93,6 +96,7 @@ const runtime = createWorkerRuntime({
   dispatch: async () => {
     await dispatchOutboxBatch(ingestionQueue);
   },
+  expireSessions,
 });
 
 export function startWorker(): void {

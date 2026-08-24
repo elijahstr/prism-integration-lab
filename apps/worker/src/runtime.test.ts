@@ -35,19 +35,23 @@ describe("worker shutdown", () => {
         await activeDispatch.promise;
         events.push("dispatch.finish");
       },
+      expireSessions: async () => {
+        events.push("sessions.expire");
+      },
     });
 
     runtime.start();
     const stopping = runtime.stop();
 
-    expect(events).toEqual(["dispatch.start", "worker.close"]);
+    expect(events).toEqual(["sessions.expire", "worker.close"]);
 
     activeDispatch.resolve();
     await stopping;
 
     expect(events).toEqual([
-      "dispatch.start",
+      "sessions.expire",
       "worker.close",
+      "dispatch.start",
       "dispatch.finish",
       "queue.close",
       "redis.close",

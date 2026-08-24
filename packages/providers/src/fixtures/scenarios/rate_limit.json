@@ -1,0 +1,10 @@
+{
+  "scenario": "rate_limit",
+  "state": "retrying",
+  "input": "VenueWave returns a rate-limit response for its current cursor.",
+  "processing": "The poller waits before it requests the same cursor again.",
+  "normalized": "No new financial operation is emitted during the limit window.",
+  "databaseEffect": "The provider cursor remains unchanged.",
+  "audit": "The rate-limit audit records the preserved cursor.",
+  "explanation": "Prism waits for the provider limit and keeps the cursor so no page is skipped."
+}
