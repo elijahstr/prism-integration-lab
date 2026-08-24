@@ -1,17 +1,15 @@
 import { randomUUID } from "node:crypto";
 
-import { checksumPayload, VenueWavePayloadSchema } from "@prism/providers";
+import {
+  checksumPayload,
+  VenueWavePayloadSchema,
+  type VenueWavePollResponse,
+} from "@prism/providers";
 
 import { sql } from "../../../../packages/database/src/client";
 
 export type VenueWavePageClient = {
-  getPage(cursor: string | null):
-    | {
-        cursor: string | null;
-        effects: unknown[];
-        nextCursor: string;
-      }
-    | undefined;
+  getPage(cursor: string | null): VenueWavePollResponse | undefined;
 };
 
 type PollConnection = {
@@ -22,7 +20,10 @@ type PollConnection = {
 };
 
 export type PollVenueWaveResult =
-  { status: "no_page" } | { status: "saved"; nextCursor: string };
+  | { status: "no_page" }
+  | { error: string; status: "temporary_failure" }
+  | { retryAfterSeconds: number; status: "rate_limited" }
+  | { status: "saved"; nextCursor: string };
 
 export async function pollVenueWave(input: {
   client: VenueWavePageClient;
@@ -53,6 +54,17 @@ export async function pollVenueWave(input: {
 
     if (!page) {
       return { status: "no_page" };
+    }
+
+    if ("type" in page) {
+      if (page.type === "temporary_failure") {
+        return { error: page.error, status: "temporary_failure" };
+      }
+
+      return {
+        retryAfterSeconds: page.retryAfterSeconds,
+        status: "rate_limited",
+      };
     }
 
     if (page.cursor !== connection.pollCursor) {

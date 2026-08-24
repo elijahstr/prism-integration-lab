@@ -179,18 +179,34 @@ export async function createLabSession(
   });
 }
 
-export async function createScenarioRun(
+export async function startScenarioRun(
   scope: Scope,
   scenario: ScenarioId,
-): Promise<string> {
+): Promise<string | null> {
   const id = `run-lab-${randomUUID()}`;
 
-  await sql`
-    INSERT INTO scenario_runs (id, scope_id, organization_id, scenario, state)
-    VALUES (${id}, ${scope.scopeId}, ${scope.organizationId}, ${scenario}, 'running')
-  `;
+  return sql.begin(async (transaction) => {
+    const sessions = await transaction`
+      SELECT 1
+      FROM demo_sessions
+      WHERE scope_id = ${scope.scopeId}
+        AND organization_id = ${scope.organizationId}
+        AND state = 'active'
+        AND expires_at > now()
+      FOR UPDATE
+    `;
 
-  return id;
+    if (sessions.length !== 1) {
+      return null;
+    }
+
+    await transaction`
+      INSERT INTO scenario_runs (id, scope_id, organization_id, scenario, state)
+      VALUES (${id}, ${scope.scopeId}, ${scope.organizationId}, ${scenario}, 'running')
+    `;
+
+    return id;
+  });
 }
 
 export async function saveScenarioTrace(
@@ -331,7 +347,7 @@ export async function expireLabSessions(): Promise<number> {
         AND data_scopes.organization_id = demo_sessions.organization_id
       WHERE demo_sessions.state = 'expired'
         AND data_scopes.kind = 'lab'
-      FOR UPDATE
+      FOR UPDATE OF demo_sessions
     `;
     let deleted = 0;
 
@@ -345,6 +361,18 @@ export async function expireLabSessions(): Promise<number> {
       `;
 
       if (activeJobs.length !== 0) {
+        continue;
+      }
+
+      const activeRuns = await transaction`
+        SELECT 1
+        FROM scenario_runs
+        WHERE scope_id = ${scope.scopeId}
+          AND state = 'running'
+        LIMIT 1
+      `;
+
+      if (activeRuns.length !== 0) {
         continue;
       }
 

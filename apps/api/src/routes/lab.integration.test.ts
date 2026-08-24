@@ -168,6 +168,86 @@ describe("integration lab", () => {
     await server.close();
   });
 
+  test("records observed outage and rate-limit poll evidence", async () => {
+    const server = buildServer();
+    const outage = await createSession(server);
+    const outageResponse = await server.inject({
+      method: "POST",
+      url: "/api/lab/scenarios/provider_outage/run",
+      headers: { authorization: `Lab ${outage.token}` },
+    });
+    const rate = await createSession(server);
+    const rateResponse = await server.inject({
+      method: "POST",
+      url: "/api/lab/scenarios/rate_limit/run",
+      headers: { authorization: `Lab ${rate.token}` },
+    });
+
+    expect(outageResponse.statusCode).toBe(201);
+    expect(rateResponse.statusCode).toBe(201);
+    expect(outageResponse.json().trace[1].explanation).toContain(
+      "Attempt 1 failed",
+    );
+    expect(outageResponse.json().trace[3].databaseEffect).toContain(
+      "after 2 attempts",
+    );
+    expect(rateResponse.json().trace[3].databaseEffect).toContain("unchanged");
+    const auditRows = Array.from(
+      await sql<
+        {
+          action: string;
+          attempts: string | null;
+          backoffMs: string | null;
+          cursorAfter: string | null;
+          cursorBefore: string | null;
+          error: string | null;
+          retryAfterSeconds: string | null;
+        }[]
+      >`
+          SELECT
+            action,
+            details->>'attempts' AS attempts,
+            details->>'backoffMs' AS "backoffMs",
+            details->>'cursorAfter' AS "cursorAfter",
+            details->>'cursorBefore' AS "cursorBefore",
+            details->>'error' AS error,
+            details->>'retryAfterSeconds' AS "retryAfterSeconds"
+          FROM audit_entries
+          WHERE scope_id IN (${outage.scopeId}, ${rate.scopeId})
+            AND action IN ('venuewave_retrying', 'venuewave_recovered', 'venuewave_rate_limited')
+          ORDER BY action
+        `,
+    );
+    const rateLimit = auditRows.find(
+      (row) => row.action === "venuewave_rate_limited",
+    );
+    const recovered = auditRows.find(
+      (row) => row.action === "venuewave_recovered",
+    );
+    const retrying = auditRows.find(
+      (row) => row.action === "venuewave_retrying",
+    );
+
+    expect(rateLimit).toEqual(
+      expect.objectContaining({ retryAfterSeconds: "60" }),
+    );
+    expect(rateLimit?.cursorAfter).toBe(rateLimit?.cursorBefore);
+    expect(recovered).toEqual(
+      expect.objectContaining({
+        attempts: "2",
+        cursorAfter: "cursor-outage-recovered",
+      }),
+    );
+    expect(retrying).toEqual(
+      expect.objectContaining({
+        attempts: "1",
+        backoffMs: "1000",
+        error: "temporary provider failure",
+      }),
+    );
+    await server.close();
+  });
+
   test("does not expose or reset another lab scope", async () => {
     const server = buildServer();
     const first = await createSession(server);
@@ -221,12 +301,18 @@ describe("integration lab", () => {
       url: `/api/reviews/${reviewId}/reject`,
       headers: { authorization: `Lab ${second.token}` },
     });
+    const ownedReset = await server.inject({
+      method: "POST",
+      url: `/api/lab/runs/${runId}/reset`,
+      headers: { authorization: `Lab ${first.token}` },
+    });
 
     expect(hiddenRead.statusCode).toBe(404);
     expect(hiddenReset.statusCode).toBe(404);
     expect(hiddenReplay.statusCode).toBe(404);
     expect(hiddenApprove.statusCode).toBe(404);
     expect(hiddenReject.statusCode).toBe(404);
+    expect(ownedReset.statusCode).toBe(200);
     await server.close();
   });
 });

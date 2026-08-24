@@ -2,9 +2,5 @@
   "scenario": "provider_outage",
   "state": "recovered",
   "input": "VenueWave returns temporary failures before a successful poll.",
-  "processing": "The worker records retrying state and retries with backoff.",
-  "normalized": "The recovered VenueWave page produces one sale effect.",
-  "databaseEffect": "The cursor advances only after the complete page is durable.",
-  "audit": "The recovery audit records the successful retry.",
   "explanation": "Temporary provider failure does not lose work because the cursor advances after durable processing."
 }

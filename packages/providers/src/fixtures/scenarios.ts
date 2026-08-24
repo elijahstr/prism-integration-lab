@@ -9,12 +9,12 @@ import uncertainEventMatch from "./scenarios/uncertain_event_match.json";
 import type { ScenarioId } from "@prism/contracts";
 
 export type ScenarioFixture = {
-  audit: string;
-  databaseEffect: string;
+  audit?: string;
+  databaseEffect?: string;
   explanation: string;
   input: string;
-  normalized: string;
-  processing: string;
+  normalized?: string;
+  processing?: string;
   scenario: ScenarioId;
   state: string;
 };

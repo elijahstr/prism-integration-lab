@@ -6,10 +6,10 @@ import type { FastifyInstance } from "fastify";
 
 import {
   createLabSession,
-  createScenarioRun,
   readScenarioRun,
   resetScenarioRun,
   saveScenarioTrace,
+  startScenarioRun,
 } from "../../../../packages/database/src/lab";
 import { sql } from "../../../../packages/database/src/client";
 import { acceptMessage } from "../../../../packages/database/src/ingestion";
@@ -18,6 +18,7 @@ import {
   scenarioFixtures,
   type ScenarioFixture,
 } from "../../../../packages/providers/src/fixtures/scenarios";
+import { VenueWaveSequenceClient } from "../../../../packages/providers/src/venuewave/simulator";
 import { processMessage } from "../../../worker/src/jobs/process-message";
 import { pollVenueWave } from "../../../worker/src/jobs/poll-venuewave";
 
@@ -32,6 +33,13 @@ type LabResources = {
   eventId: string;
   showId: string;
   venueWaveConnectionId: string;
+};
+type ScenarioObservation = {
+  audit: string;
+  databaseEffect: string;
+  normalized: string;
+  processing: string;
+  state: string;
 };
 
 function labBody(body: unknown): SessionBody {
@@ -56,7 +64,27 @@ function labBody(body: unknown): SessionBody {
   throw new HttpError(400, "The lab session body is invalid");
 }
 
-function traceFor(fixture: ScenarioFixture): TraceStep[] {
+function traceFor(
+  fixture: ScenarioFixture,
+  observation?: ScenarioObservation,
+): TraceStep[] {
+  const details = {
+    audit: observation?.audit ?? fixture.audit,
+    databaseEffect: observation?.databaseEffect ?? fixture.databaseEffect,
+    normalized: observation?.normalized ?? fixture.normalized,
+    processing: observation?.processing ?? fixture.processing,
+    state: observation?.state ?? fixture.state,
+  };
+
+  if (
+    !details.audit ||
+    !details.databaseEffect ||
+    !details.normalized ||
+    !details.processing
+  ) {
+    throw new Error("The scenario trace is missing observed details");
+  }
+
   return [
     {
       databaseEffect:
@@ -69,7 +97,7 @@ function traceFor(fixture: ScenarioFixture): TraceStep[] {
     {
       databaseEffect:
         "The durable message state records the processing decision.",
-      explanation: fixture.processing,
+      explanation: details.processing,
       order: 1,
       state: "processing",
       title: "Processing state",
@@ -77,23 +105,23 @@ function traceFor(fixture: ScenarioFixture): TraceStep[] {
     {
       databaseEffect:
         "Normalized operations remain linked to their source message.",
-      explanation: fixture.normalized,
+      explanation: details.normalized,
       order: 2,
-      state: fixture.state,
+      state: details.state,
       title: "Normalized output",
     },
     {
-      databaseEffect: fixture.databaseEffect,
+      databaseEffect: details.databaseEffect,
       explanation: fixture.explanation,
       order: 3,
-      state: fixture.state,
+      state: details.state,
       title: "Database effect",
     },
     {
       databaseEffect: "Audit evidence is stored with the same lab scope.",
-      explanation: fixture.audit,
+      explanation: details.audit,
       order: 4,
-      state: fixture.state,
+      state: details.state,
       title: "Audit result",
     },
   ];
@@ -144,7 +172,7 @@ async function addAudit(
     INSERT INTO audit_entries (id, scope_id, organization_id, action, details)
     VALUES (
       ${`audit-lab-${randomUUID()}`}, ${scope.scopeId}, ${scope.organizationId},
-      ${action}, ${JSON.stringify(details)}::jsonb
+      ${action}, ${sql.json(details)}
     )
   `;
 }
@@ -189,10 +217,22 @@ async function labResources(scope: Scope): Promise<LabResources> {
   return resources;
 }
 
+async function venueWaveCursor(scope: Scope): Promise<string> {
+  const cursors = await sql<{ cursor: string | null }[]>`
+    SELECT poll_cursor AS cursor
+    FROM provider_connections
+    WHERE scope_id = ${scope.scopeId}
+      AND organization_id = ${scope.organizationId}
+      AND provider = 'venuewave'
+  `;
+
+  return cursors[0]?.cursor ?? "initial";
+}
+
 async function runScenarioWork(
   scope: Scope,
   scenario: ScenarioId,
-): Promise<void> {
+): Promise<ScenarioObservation | undefined> {
   const resources = await labResources(scope);
   const deliveryId = (name: string) => `${name}-${randomUUID()}`;
 
@@ -210,7 +250,7 @@ async function runScenarioWork(
     };
     await acceptAndProcess(scope, values);
     await acceptMessage(scope, envelope(scope, values));
-    return;
+    return undefined;
   }
 
   if (scenario === "late_update") {
@@ -236,11 +276,12 @@ async function runScenarioWork(
       provider: "encoretix",
       sourceVersion: "2026-08-24T11:59:00.000Z",
     });
-    return;
+    return undefined;
   }
 
   if (scenario === "provider_outage") {
     const outageDeliveryId = deliveryId("venuewave-outage-recovery");
+    const cursorBefore = await venueWaveCursor(scope);
 
     await sql`
       INSERT INTO event_mappings (
@@ -256,25 +297,49 @@ async function runScenarioWork(
       SET connection_id = EXCLUDED.connection_id, show_id = EXCLUDED.show_id,
         state = 'confirmed'
     `;
-    await sql`
-      UPDATE provider_connections
-      SET recent_error = 'temporary_provider_failure', updated_at = now()
-      WHERE scope_id = ${scope.scopeId}
-        AND provider = 'venuewave'
-    `;
-    await addAudit(scope, "venuewave_retrying", { attempts: 2 });
-    await pollVenueWave({
-      client: {
-        getPage: (cursor) => ({
-          cursor,
-          effects: [{ amountDeltaCents: 7500, kind: "sale", ticketDelta: 3 }],
-          nextCursor: "cursor-outage-recovered",
-        }),
+    const client = new VenueWaveSequenceClient([
+      { error: "temporary provider failure", type: "temporary_failure" },
+      {
+        cursor: cursorBefore === "initial" ? null : cursorBefore,
+        effects: [{ amountDeltaCents: 7500, kind: "sale", ticketDelta: 3 }],
+        nextCursor: "cursor-outage-recovered",
       },
+    ]);
+    const firstAttempt = await pollVenueWave({
+      client,
       connectionId: resources.venueWaveConnectionId,
       deliveryId: outageDeliveryId,
       externalEventId: resources.eventId,
     });
+
+    if (firstAttempt.status !== "temporary_failure") {
+      throw new Error("The outage simulator did not fail its first poll");
+    }
+
+    const backoffMs = 1_000;
+    await sql`
+      UPDATE provider_connections
+      SET recent_error = ${firstAttempt.error}, updated_at = now()
+      WHERE scope_id = ${scope.scopeId}
+        AND provider = 'venuewave'
+    `;
+    await addAudit(scope, "venuewave_retrying", {
+      attempts: 1,
+      backoffMs,
+      error: firstAttempt.error,
+    });
+    const secondAttempt = await pollVenueWave({
+      client,
+      connectionId: resources.venueWaveConnectionId,
+      deliveryId: outageDeliveryId,
+      externalEventId: resources.eventId,
+    });
+
+    if (secondAttempt.status !== "saved") {
+      throw new Error(
+        "The outage simulator did not recover on its second poll",
+      );
+    }
     const messages = await sql<{ id: string }[]>`
       SELECT id
       FROM ingestion_messages
@@ -283,19 +348,56 @@ async function runScenarioWork(
         AND delivery_id = ${outageDeliveryId}
     `;
     await processMessage(messages[0]!.id);
-    await addAudit(scope, "venuewave_recovered", { attempts: 3 });
-    return;
+    const cursorAfter = await venueWaveCursor(scope);
+    await addAudit(scope, "venuewave_recovered", {
+      attempts: 2,
+      cursorAfter,
+      cursorBefore,
+    });
+    return {
+      audit: `Audit evidence records the temporary error, ${backoffMs} ms backoff, and recovery after 2 attempts.`,
+      databaseEffect: `The cursor changed from ${cursorBefore} to ${cursorAfter} after 2 attempts and one durable message.`,
+      normalized:
+        "The successful second poll produced one VenueWave sale effect.",
+      processing: `Attempt 1 failed with ${firstAttempt.error}. Prism planned ${backoffMs} ms exponential backoff. Attempt 2 succeeded without delay in the lab clock.`,
+      state: "recovered",
+    };
   }
 
   if (scenario === "rate_limit") {
+    const cursorBefore = await venueWaveCursor(scope);
+    const rateLimitAttempt = await pollVenueWave({
+      client: new VenueWaveSequenceClient([
+        { retryAfterSeconds: 60, type: "rate_limited" },
+      ]),
+      connectionId: resources.venueWaveConnectionId,
+      deliveryId: deliveryId("venuewave-rate-limit"),
+      externalEventId: resources.eventId,
+    });
+
+    if (rateLimitAttempt.status !== "rate_limited") {
+      throw new Error("The rate-limit simulator did not return a rate limit");
+    }
+
+    const cursorAfter = await venueWaveCursor(scope);
     await sql`
       UPDATE provider_connections
       SET recent_error = 'rate_limited', updated_at = now()
       WHERE scope_id = ${scope.scopeId}
         AND provider = 'venuewave'
     `;
-    await addAudit(scope, "venuewave_rate_limited", { retryAfterSeconds: 60 });
-    return;
+    await addAudit(scope, "venuewave_rate_limited", {
+      cursorAfter,
+      cursorBefore,
+      retryAfterSeconds: rateLimitAttempt.retryAfterSeconds,
+    });
+    return {
+      audit: `Audit evidence records the ${rateLimitAttempt.retryAfterSeconds}-second retry time and both cursor values.`,
+      databaseEffect: `The cursor stayed unchanged at ${cursorAfter}; no message or financial effect was stored.`,
+      normalized: "The controlled rate limit emitted no financial operation.",
+      processing: `Attempt 1 received a rate limit. Prism planned retry after ${rateLimitAttempt.retryAfterSeconds} seconds without delay in the lab clock.`,
+      state: "retrying",
+    };
   }
 
   if (scenario === "uncertain_event_match") {
@@ -318,7 +420,7 @@ async function runScenarioWork(
         ${messageId}, 'uncertain_event_match'
       )
     `;
-    return;
+    return undefined;
   }
 
   if (scenario === "incomplete_snapshot") {
@@ -342,7 +444,7 @@ async function runScenarioWork(
         ${messageId}, 'incomplete_snapshot'
       )
     `;
-    return;
+    return undefined;
   }
 
   await sql.begin(async (transaction) => {
@@ -409,6 +511,7 @@ async function runScenarioWork(
     boxgrid: 600,
     encoretix: 400,
   });
+  return undefined;
 }
 
 export function registerLabRoutes(server: FastifyInstance): void {
@@ -447,10 +550,20 @@ export function registerLabRoutes(server: FastifyInstance): void {
       }
 
       const scope = await resolveLabScope(request);
-      const runId = await createScenarioRun(scope, parsed.data);
-      await runScenarioWork(scope, parsed.data);
+      const runId = await startScenarioRun(scope, parsed.data);
+
+      if (!runId) {
+        throw new HttpError(401, "The lab session has expired");
+      }
+
+      const observation = await runScenarioWork(scope, parsed.data);
       const fixture = scenarioFixtures[parsed.data];
-      await saveScenarioTrace(scope, runId, fixture.state, traceFor(fixture));
+      await saveScenarioTrace(
+        scope,
+        runId,
+        observation?.state ?? fixture.state,
+        traceFor(fixture, observation),
+      );
       const run = await readScenarioRun(scope, runId);
 
       return reply.status(201).send(run);
