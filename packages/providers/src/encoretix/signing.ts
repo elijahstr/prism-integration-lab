@@ -23,12 +23,12 @@ function canonicalJson(value: unknown): string {
   return `{${entries.join(",")}}`;
 }
 
-export function signEncorePayload(payload: string, secret: string): string {
+export function signEncorePayload(payload: Uint8Array, secret: string): string {
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
 
 export function verifyEncoreSignature(
-  payload: string,
+  payload: Uint8Array,
   signature: string,
   secret: string,
 ): boolean {

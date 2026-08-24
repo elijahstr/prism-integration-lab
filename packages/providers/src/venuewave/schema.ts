@@ -1,8 +1,10 @@
 import { z } from "zod";
 
+import { SafeCentsSchema } from "../cents";
+
 export const VenueWaveEffectSchema = z
   .object({
-    amountDeltaCents: z.number().int(),
+    amountDeltaCents: SafeCentsSchema,
     kind: z.enum(["sale", "refund", "fee", "inventory"]),
     ticketDelta: z.number().int(),
   })

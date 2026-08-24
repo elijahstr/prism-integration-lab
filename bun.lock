@@ -75,6 +75,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@prism/contracts": "workspace:*",
+        "@prism/domain": "workspace:*",
         "zod": "4.4.3",
       },
     },

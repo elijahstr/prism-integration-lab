@@ -1,7 +1,5 @@
 import type { ProviderEnvelope } from "@prism/contracts";
-
-import type { ProviderAdapter } from "../../../domain/src/operations";
-import { compareProviderVersion } from "../../../domain/src/version";
+import { compareProviderVersion, type ProviderAdapter } from "@prism/domain";
 
 import { BoxGridSnapshotSchema } from "./schema";
 

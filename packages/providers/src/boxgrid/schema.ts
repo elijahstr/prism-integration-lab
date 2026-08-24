@@ -1,8 +1,10 @@
 import { z } from "zod";
 
+import { SafeCentsSchema } from "../cents";
+
 export const BoxGridFactsSchema = z
   .object({
-    grossSalesCents: z.number().int(),
+    grossSalesCents: SafeCentsSchema,
     inventory: z.number().int().nonnegative(),
     sold: z.number().int().nonnegative(),
   })

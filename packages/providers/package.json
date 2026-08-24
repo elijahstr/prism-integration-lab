@@ -6,6 +6,7 @@
   "exports": "./src/index.ts",
   "dependencies": {
     "@prism/contracts": "workspace:*",
+    "@prism/domain": "workspace:*",
     "zod": "4.4.3"
   }
 }

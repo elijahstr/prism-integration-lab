@@ -1,6 +1,7 @@
 export * from "./boxgrid/adapter";
 export * from "./boxgrid/schema";
 export * from "./boxgrid/simulator";
+export * from "./cents";
 export * from "./encoretix/adapter";
 export * from "./encoretix/schema";
 export * from "./encoretix/signing";

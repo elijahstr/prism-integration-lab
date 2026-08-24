@@ -12,4 +12,18 @@ describe("BoxGrid snapshot schema", () => {
       }),
     ).toThrow();
   });
+
+  test("rejects unsafe integer gross sales cents", () => {
+    expect(() =>
+      BoxGridSnapshotSchema.parse({
+        complete: true,
+        facts: {
+          grossSalesCents: Number.MAX_SAFE_INTEGER + 1,
+          inventory: 10,
+          sold: 1,
+        },
+        sequence: "10",
+      }),
+    ).toThrow();
+  });
 });

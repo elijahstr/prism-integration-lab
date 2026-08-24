@@ -10,4 +10,19 @@ describe("VenueWave payload schema", () => {
       }),
     ).toThrow();
   });
+
+  test("rejects an unsafe integer money delta", () => {
+    expect(() =>
+      VenueWavePayloadSchema.parse({
+        effects: [
+          {
+            amountDeltaCents: Number.MAX_SAFE_INTEGER + 1,
+            kind: "sale",
+            ticketDelta: 1,
+          },
+        ],
+        nextCursor: "cursor-1",
+      }),
+    ).toThrow();
+  });
 });
