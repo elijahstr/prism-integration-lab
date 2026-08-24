@@ -227,17 +227,18 @@ export async function replayMessage(
     }
 
     if (message.state === "needs_review") {
-      const blockedReviews = await transaction`
-        SELECT 1
+      const reviews = await transaction<{ state: string }[]>`
+        SELECT state
         FROM review_items
         WHERE message_id = ${message.id}
           AND organization_id = ${scope.organizationId}
           AND scope_id = ${scope.scopeId}
-          AND state <> 'approved'
-        LIMIT 1
       `;
 
-      if (blockedReviews.length !== 0) {
+      if (
+        reviews.length === 0 ||
+        reviews.some((review) => review.state !== "approved")
+      ) {
         return "not_ready";
       }
 

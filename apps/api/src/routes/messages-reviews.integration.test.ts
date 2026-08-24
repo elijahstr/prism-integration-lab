@@ -178,6 +178,36 @@ describe("scoped message and review mutations", () => {
     await server.close();
   });
 
+  test("denies a needs-review message with no linked review despite its mapping", async () => {
+    const messageId = await createNeedsReviewMessage();
+    await sql`
+      UPDATE ingestion_outbox
+      SET dispatched_at = now()
+      WHERE message_id = ${messageId}
+    `;
+    const server = buildServer();
+    const response = await server.inject({
+      method: "POST",
+      url: `/api/messages/${messageId}/replay`,
+      headers: { authorization: `Lab ${token}` },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(
+      Array.from(
+        await sql<{ state: string; dispatched: boolean }[]>`
+          SELECT
+            ingestion_messages.state,
+            ingestion_outbox.dispatched_at IS NOT NULL AS dispatched
+          FROM ingestion_messages
+          JOIN ingestion_outbox ON ingestion_outbox.message_id = ingestion_messages.id
+          WHERE ingestion_messages.id = ${messageId}
+        `,
+      ),
+    ).toEqual([{ state: "needs_review", dispatched: true }]);
+    await server.close();
+  });
+
   test("replays a needs-review message after every review approval and mapping check", async () => {
     const messageId = await createNeedsReviewMessage();
     await sql`
