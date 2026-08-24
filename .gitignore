@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+dist/
+coverage/
+.turbo/
+.superpowers/
+docs/superpowers/specs/prism-integration-lab-companion/out-*.html
