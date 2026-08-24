@@ -4,6 +4,16 @@ type LoadHandlers<TResult> = {
   success(result: TResult): void;
 };
 
+declare const dashboardActionGeneration: unique symbol;
+
+export type DashboardActionGeneration = {
+  readonly [dashboardActionGeneration]: true;
+};
+
+type DashboardGeneration = DashboardActionGeneration & {
+  organizationSlug: string;
+};
+
 function isAbortError(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -14,16 +24,27 @@ function isAbortError(error: unknown): boolean {
 }
 
 export class DashboardLoadCoordinator<TResult> {
-  #generation = 0;
-  #organizationSlug: string | null = null;
+  #currentGeneration: DashboardGeneration | null = null;
 
   invalidate(): void {
-    this.#generation += 1;
-    this.#organizationSlug = null;
+    this.#currentGeneration = null;
   }
 
-  isCurrentOrganization(organizationSlug: string): boolean {
-    return this.#organizationSlug === organizationSlug;
+  beginAction(organizationSlug: string): DashboardActionGeneration | null {
+    return this.#currentGeneration?.organizationSlug === organizationSlug
+      ? this.#currentGeneration
+      : null;
+  }
+
+  commitAction(
+    generation: DashboardActionGeneration,
+    update: () => void,
+  ): void {
+    if (!this.#isCurrent(generation)) {
+      return;
+    }
+
+    update();
   }
 
   start(
@@ -31,42 +52,43 @@ export class DashboardLoadCoordinator<TResult> {
     load: () => Promise<TResult>,
     handlers: LoadHandlers<TResult>,
   ): Promise<void> {
-    this.#organizationSlug = organizationSlug;
-    return this.#run(organizationSlug, load, handlers);
+    const generation = { organizationSlug } as DashboardGeneration;
+    this.#currentGeneration = generation;
+    return this.#run(generation, load, handlers);
   }
 
   refresh<TRefreshResult>(
-    organizationSlug: string,
+    generation: DashboardActionGeneration,
     load: () => Promise<TRefreshResult>,
     handlers: LoadHandlers<TRefreshResult>,
   ): Promise<void> {
-    if (this.#organizationSlug !== organizationSlug) {
+    if (!this.#isCurrent(generation)) {
       return Promise.resolve();
     }
 
-    return this.#run(organizationSlug, load, handlers);
+    return this.#run(generation as DashboardGeneration, load, handlers);
   }
 
   #run<TLoadResult>(
-    organizationSlug: string,
+    generation: DashboardGeneration,
     load: () => Promise<TLoadResult>,
     handlers: LoadHandlers<TLoadResult>,
   ): Promise<void> {
-    const generation = ++this.#generation;
-    handlers.loading(organizationSlug);
+    if (!this.#isCurrent(generation)) {
+      return Promise.resolve();
+    }
+
+    handlers.loading(generation.organizationSlug);
 
     return load()
       .then((result) => {
-        if (!this.#isCurrent(generation, organizationSlug)) {
+        if (!this.#isCurrent(generation)) {
           return;
         }
         handlers.success(result);
       })
       .catch((error: unknown) => {
-        if (
-          !this.#isCurrent(generation, organizationSlug) ||
-          isAbortError(error)
-        ) {
+        if (!this.#isCurrent(generation) || isAbortError(error)) {
           return;
         }
         handlers.error(
@@ -77,10 +99,7 @@ export class DashboardLoadCoordinator<TResult> {
       });
   }
 
-  #isCurrent(generation: number, organizationSlug: string): boolean {
-    return (
-      this.#generation === generation &&
-      this.#organizationSlug === organizationSlug
-    );
+  #isCurrent(generation: DashboardActionGeneration): boolean {
+    return this.#currentGeneration === generation;
   }
 }

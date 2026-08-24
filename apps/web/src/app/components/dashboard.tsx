@@ -45,7 +45,10 @@ import {
   readLabToken,
 } from "../lib/session";
 import { loadDashboardSession } from "../lib/dashboard-session";
-import { DashboardLoadCoordinator } from "../lib/dashboard-load";
+import {
+  type DashboardActionGeneration,
+  DashboardLoadCoordinator,
+} from "../lib/dashboard-load";
 import {
   dashboardHref,
   dashboardLocation,
@@ -644,9 +647,13 @@ export function DashboardPage({
   );
 
   const refresh = useCallback(
-    (token: string, organizationSlug: string) =>
+    (
+      token: string,
+      organizationSlug: string,
+      actionGeneration: DashboardActionGeneration,
+    ) =>
       loadCoordinatorRef.current.refresh(
-        organizationSlug,
+        actionGeneration,
         () => loadDashboard(token),
         {
           error: (reason) => {
@@ -709,8 +716,10 @@ export function DashboardPage({
 
   const activeToken = () =>
     readLabToken(window.sessionStorage, routeState.organizationSlug);
-  const isCurrentOrganization = (organizationSlug: string) =>
-    loadCoordinatorRef.current.isCurrentOrganization(organizationSlug);
+  const commitAction = (
+    actionGeneration: DashboardActionGeneration,
+    update: () => void,
+  ) => loadCoordinatorRef.current.commitAction(actionGeneration, update);
 
   const replaceRouteState = (nextState: DashboardRouteState) => {
     if (nextState.organizationSlug !== routeState.organizationSlug) {
@@ -726,52 +735,67 @@ export function DashboardPage({
 
   async function reviewAction(review: ReviewDto, action: "approve" | "reject") {
     const organizationSlug = routeState.organizationSlug;
+    const actionGeneration =
+      loadCoordinatorRef.current.beginAction(organizationSlug);
+    if (!actionGeneration) return;
     const token = activeToken();
     const unavailableMessage = unavailableSessionMessage(token);
     if (!token) {
-      setError(unavailableMessage);
-      focusActionResult(document);
+      commitAction(actionGeneration, () => {
+        setError(unavailableMessage);
+        focusActionResult(document);
+      });
       return;
     }
-    setError(null);
-    setPendingAction(review.id);
+    commitAction(actionGeneration, () => {
+      setError(null);
+      setPendingAction(review.id);
+    });
     try {
       await (action === "approve"
         ? approveReview(token, review.id)
         : rejectReview(token, review.id));
-      await refresh(token, organizationSlug);
+      await refresh(token, organizationSlug, actionGeneration);
     } catch (reason) {
-      if (!isCurrentOrganization(organizationSlug)) {
-        return;
-      }
-      if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage, organizationSlug);
-      }
-      setError(
-        reason instanceof Error ? reason.message : "The review action failed.",
-      );
+      commitAction(actionGeneration, () => {
+        if (reason instanceof LabSessionExpiredError) {
+          clearLabToken(window.sessionStorage, organizationSlug);
+        }
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "The review action failed.",
+        );
+      });
     } finally {
-      if (isCurrentOrganization(organizationSlug)) {
+      commitAction(actionGeneration, () => {
         setPendingAction(null);
         focusActionResult(document);
-      }
+      });
     }
   }
 
   async function runScenario(scenario: ScenarioId) {
     const organizationSlug = routeState.organizationSlug;
+    const actionGeneration =
+      loadCoordinatorRef.current.beginAction(organizationSlug);
+    if (!actionGeneration) return;
     const token = activeToken();
     const unavailableMessage = unavailableSessionMessage(token);
     if (!token) {
-      setError(unavailableMessage);
-      focusActionResult(document);
+      commitAction(actionGeneration, () => {
+        setError(unavailableMessage);
+        focusActionResult(document);
+      });
       return;
     }
-    setError(null);
-    setPendingAction(scenario);
-    setLabStatus(
-      `Running ${scenarios.find((item) => item.id === scenario)?.title ?? "scenario"}.`,
-    );
+    commitAction(actionGeneration, () => {
+      setError(null);
+      setPendingAction(scenario);
+      setLabStatus(
+        `Running ${scenarios.find((item) => item.id === scenario)?.title ?? "scenario"}.`,
+      );
+    });
     try {
       const nextRun = await dashboardRequest(
         token,
@@ -779,47 +803,52 @@ export function DashboardPage({
         ScenarioRunDtoSchema,
         { method: "POST" },
       );
-      if (!isCurrentOrganization(organizationSlug)) {
-        return;
-      }
-      setRun(nextRun);
-      replaceRouteState(withScenarioRun(routeState, nextRun.id));
-      await refresh(token, organizationSlug);
-      if (isCurrentOrganization(organizationSlug)) {
+      commitAction(actionGeneration, () => {
+        setRun(nextRun);
+        replaceRouteState(withScenarioRun(routeState, nextRun.id));
+      });
+      await refresh(token, organizationSlug, actionGeneration);
+      commitAction(actionGeneration, () => {
         setLabStatus("Scenario completed. The processing trace is available.");
-      }
+      });
     } catch (reason) {
-      if (!isCurrentOrganization(organizationSlug)) {
-        return;
-      }
-      if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage, organizationSlug);
-      }
-      setError(
-        reason instanceof Error ? reason.message : "The scenario failed.",
-      );
-      setLabStatus("Scenario failed. Check the dashboard message.");
+      commitAction(actionGeneration, () => {
+        if (reason instanceof LabSessionExpiredError) {
+          clearLabToken(window.sessionStorage, organizationSlug);
+        }
+        setError(
+          reason instanceof Error ? reason.message : "The scenario failed.",
+        );
+        setLabStatus("Scenario failed. Check the dashboard message.");
+      });
     } finally {
-      if (isCurrentOrganization(organizationSlug)) {
+      commitAction(actionGeneration, () => {
         setPendingAction(null);
         focusActionResult(document);
-      }
+      });
     }
   }
 
   async function resetRun() {
     const organizationSlug = routeState.organizationSlug;
-    const token = activeToken();
     if (!run) return;
+    const actionGeneration =
+      loadCoordinatorRef.current.beginAction(organizationSlug);
+    if (!actionGeneration) return;
+    const token = activeToken();
     const unavailableMessage = unavailableSessionMessage(token);
     if (!token) {
-      setError(unavailableMessage);
-      focusActionResult(document);
+      commitAction(actionGeneration, () => {
+        setError(unavailableMessage);
+        focusActionResult(document);
+      });
       return;
     }
-    setError(null);
-    setPendingAction(run.id);
-    setLabStatus("Resetting the scenario run.");
+    commitAction(actionGeneration, () => {
+      setError(null);
+      setPendingAction(run.id);
+      setLabStatus("Resetting the scenario run.");
+    });
     try {
       await dashboardRequest(
         token,
@@ -827,58 +856,66 @@ export function DashboardPage({
         { parse: (value) => value },
         { method: "POST" },
       );
-      if (!isCurrentOrganization(organizationSlug)) {
-        return;
-      }
-      setRun(null);
-      replaceRouteState({ ...routeState, runId: null });
-      await refresh(token, organizationSlug);
-      if (isCurrentOrganization(organizationSlug)) {
+      commitAction(actionGeneration, () => {
+        setRun(null);
+        replaceRouteState({ ...routeState, runId: null });
+      });
+      await refresh(token, organizationSlug, actionGeneration);
+      commitAction(actionGeneration, () => {
         setLabStatus("Scenario reset. You can select another scenario.");
-      }
+      });
     } catch (reason) {
-      if (!isCurrentOrganization(organizationSlug)) {
-        return;
-      }
-      if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage, organizationSlug);
-      }
-      setError(reason instanceof Error ? reason.message : "The reset failed.");
+      commitAction(actionGeneration, () => {
+        if (reason instanceof LabSessionExpiredError) {
+          clearLabToken(window.sessionStorage, organizationSlug);
+        }
+        setError(
+          reason instanceof Error ? reason.message : "The reset failed.",
+        );
+      });
     } finally {
-      if (isCurrentOrganization(organizationSlug)) {
+      commitAction(actionGeneration, () => {
         setPendingAction(null);
         focusActionResult(document);
-      }
+      });
     }
   }
 
   async function replayMessage(message: MessageDto) {
     const organizationSlug = routeState.organizationSlug;
+    const actionGeneration =
+      loadCoordinatorRef.current.beginAction(organizationSlug);
+    if (!actionGeneration) return;
     const token = activeToken();
     const unavailableMessage = unavailableSessionMessage(token);
     if (!token) {
-      setError(unavailableMessage);
-      focusActionResult(document);
+      commitAction(actionGeneration, () => {
+        setError(unavailableMessage);
+        focusActionResult(document);
+      });
       return;
     }
-    setError(null);
-    setPendingAction(message.id);
+    commitAction(actionGeneration, () => {
+      setError(null);
+      setPendingAction(message.id);
+    });
     try {
       await requestMessageReplay(token, message.id);
-      await refresh(token, organizationSlug);
+      await refresh(token, organizationSlug, actionGeneration);
     } catch (reason) {
-      if (!isCurrentOrganization(organizationSlug)) {
-        return;
-      }
-      if (reason instanceof LabSessionExpiredError) {
-        clearLabToken(window.sessionStorage, organizationSlug);
-      }
-      setError(reason instanceof Error ? reason.message : "The replay failed.");
+      commitAction(actionGeneration, () => {
+        if (reason instanceof LabSessionExpiredError) {
+          clearLabToken(window.sessionStorage, organizationSlug);
+        }
+        setError(
+          reason instanceof Error ? reason.message : "The replay failed.",
+        );
+      });
     } finally {
-      if (isCurrentOrganization(organizationSlug)) {
+      commitAction(actionGeneration, () => {
         setPendingAction(null);
         focusActionResult(document);
-      }
+      });
     }
   }
 

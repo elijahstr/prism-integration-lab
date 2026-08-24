@@ -19,6 +19,185 @@ async function settle(): Promise<void> {
 }
 
 describe("dashboard load coordination", () => {
+  test("rejects an old Northstar action after Northstar returns and its new load resolves", async () => {
+    const oldAction = deferred<void>();
+    const newNorthstarLoad = deferred<{
+      organization: string;
+      run: string | null;
+    }>();
+    const coordinator = new DashboardLoadCoordinator<{
+      organization: string;
+      run: string | null;
+    }>();
+    const state = {
+      data: "initial",
+      error: null as string | null,
+      focus: "initial",
+      loading: "initial",
+      run: "initial",
+      url: "?organization=initial&run=initial",
+    };
+    const routeHandlers = {
+      error: (error: Error) => {
+        state.error = error.message;
+      },
+      loading: (organization: string) => {
+        state.loading = `loading:${organization}`;
+      },
+      success: (result: { organization: string; run: string | null }) => {
+        state.data = result.organization;
+        state.loading = `loaded:${result.organization}`;
+        state.run = result.run ?? "none";
+        state.url = `?organization=${result.organization}&run=${result.run ?? "none"}`;
+      },
+    };
+
+    await coordinator.start(
+      "northstar-presents",
+      async () => ({ organization: "northstar-old", run: "run-old" }),
+      routeHandlers,
+    );
+    const actionGeneration = coordinator.beginAction("northstar-presents");
+    expect(actionGeneration).not.toBeNull();
+    coordinator.commitAction(actionGeneration!, () => {
+      state.loading = "old-action";
+    });
+
+    const oldActionCompletion = oldAction.promise.then(async () => {
+      coordinator.commitAction(actionGeneration!, () => {
+        state.run = "run-stale-action";
+        state.url = "?organization=northstar-presents&run=run-stale-action";
+      });
+      await coordinator.refresh(
+        actionGeneration!,
+        async () => ({
+          organization: "northstar-stale-refresh",
+          run: "run-stale-refresh",
+        }),
+        routeHandlers,
+      );
+      coordinator.commitAction(actionGeneration!, () => {
+        state.error = "old action overwrote the error";
+        state.focus = "old-action";
+        state.loading = "old-action-finished";
+      });
+    });
+
+    void coordinator.start(
+      "harborlight-live",
+      async () => ({ organization: "harborlight-live", run: "run-harbor" }),
+      routeHandlers,
+    );
+    void coordinator.start(
+      "northstar-presents",
+      () => newNorthstarLoad.promise,
+      routeHandlers,
+    );
+    newNorthstarLoad.resolve({
+      organization: "northstar-new",
+      run: "run-new",
+    });
+    await settle();
+    state.focus = "new-northstar";
+
+    oldAction.resolve();
+    await oldActionCompletion;
+
+    expect(state).toEqual({
+      data: "northstar-new",
+      error: null,
+      focus: "new-northstar",
+      loading: "loaded:northstar-new",
+      run: "run-new",
+      url: "?organization=northstar-new&run=run-new",
+    });
+  });
+
+  test("rejects an old Northstar action failure after Northstar returns", async () => {
+    const oldAction = deferred<void>();
+    const newNorthstarLoad = deferred<{
+      organization: string;
+      run: string | null;
+    }>();
+    const coordinator = new DashboardLoadCoordinator<{
+      organization: string;
+      run: string | null;
+    }>();
+    const state = {
+      data: "initial",
+      error: null as string | null,
+      focus: "initial",
+      loading: "initial",
+      run: "initial",
+      url: "?organization=initial&run=initial",
+    };
+    const routeHandlers = {
+      error: (error: Error) => {
+        state.error = error.message;
+      },
+      loading: (organization: string) => {
+        state.loading = `loading:${organization}`;
+      },
+      success: (result: { organization: string; run: string | null }) => {
+        state.data = result.organization;
+        state.loading = `loaded:${result.organization}`;
+        state.run = result.run ?? "none";
+        state.url = `?organization=${result.organization}&run=${result.run ?? "none"}`;
+      },
+    };
+
+    await coordinator.start(
+      "northstar-presents",
+      async () => ({ organization: "northstar-old", run: "run-old" }),
+      routeHandlers,
+    );
+    const actionGeneration = coordinator.beginAction("northstar-presents");
+    expect(actionGeneration).not.toBeNull();
+    coordinator.commitAction(actionGeneration!, () => {
+      state.loading = "old-action";
+    });
+
+    const oldActionFailure = oldAction.promise.catch((reason: unknown) => {
+      coordinator.commitAction(actionGeneration!, () => {
+        state.error =
+          reason instanceof Error ? reason.message : "Old action failed.";
+        state.focus = "old-action-error";
+        state.loading = "old-action-finished";
+        state.run = "run-stale-error";
+        state.url = "?organization=northstar-presents&run=run-stale-error";
+      });
+    });
+
+    void coordinator.start(
+      "harborlight-live",
+      async () => ({ organization: "harborlight-live", run: "run-harbor" }),
+      routeHandlers,
+    );
+    void coordinator.start(
+      "northstar-presents",
+      () => newNorthstarLoad.promise,
+      routeHandlers,
+    );
+    newNorthstarLoad.resolve({
+      organization: "northstar-new",
+      run: "run-new",
+    });
+    await settle();
+    state.focus = "new-northstar";
+
+    oldAction.reject(new Error("Old Northstar action failed"));
+    await oldActionFailure;
+
+    expect(state).toEqual({
+      data: "northstar-new",
+      error: null,
+      focus: "new-northstar",
+      loading: "loaded:northstar-new",
+      run: "run-new",
+      url: "?organization=northstar-new&run=run-new",
+    });
+  });
+
   test("keeps Harborlight data when a Northstar refresh finishes after the organization load", async () => {
     const northstarRefresh = deferred<{
       organization: string;
@@ -52,8 +231,9 @@ describe("dashboard load coordination", () => {
       handlers,
     );
     await settle();
+    const actionGeneration = coordinator.beginAction("northstar-presents")!;
     coordinator.refresh(
-      "northstar-presents",
+      actionGeneration,
       () => northstarRefresh.promise,
       handlers,
     );
@@ -110,8 +290,9 @@ describe("dashboard load coordination", () => {
       handlers,
     );
     await settle();
+    const actionGeneration = coordinator.beginAction("northstar-presents")!;
     coordinator.refresh(
-      "northstar-presents",
+      actionGeneration,
       () => northstarRefresh.promise,
       handlers,
     );
@@ -161,13 +342,14 @@ describe("dashboard load coordination", () => {
       handlers,
     );
     await settle();
+    const actionGeneration = coordinator.beginAction("northstar-presents")!;
     coordinator.start(
       "harborlight-live",
       () => harborlightLoad.promise,
       handlers,
     );
     coordinator.refresh(
-      "northstar-presents",
+      actionGeneration,
       async () => ({ organization: "northstar-presents", run: null }),
       handlers,
     );
