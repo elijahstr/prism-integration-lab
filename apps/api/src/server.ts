@@ -30,6 +30,10 @@ function resolvedClientAddress(request: FastifyRequest): string {
   return request.ip;
 }
 
+function requestPathname(request: FastifyRequest): string {
+  return new URL(request.url, "http://localhost").pathname;
+}
+
 function scenarioRateLimitKey(request: FastifyRequest): string {
   const tokenHash = createHash("sha256")
     .update(request.headers.authorization ?? "")
@@ -122,8 +126,10 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   server.get("/health", async () => ({ status: "ok" }));
   server.addHook("onRequest", (request, reply, done) => {
     if (request.method === "POST") {
+      const pathname = requestPathname(request);
+
       if (
-        request.url === "/api/lab/sessions" &&
+        pathname === "/api/lab/sessions" &&
         enforceRateLimit(
           reply,
           sessionAddressRequests,
@@ -134,7 +140,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
         return;
       }
 
-      if (request.url.startsWith("/api/lab/scenarios/")) {
+      if (pathname.startsWith("/api/lab/scenarios/")) {
         if (
           enforceRateLimit(
             reply,

@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import Fastify from "fastify";
 
-import { createPublicLifecycle } from "./public-lifecycle";
+import {
+  createPublicLifecycle,
+  installPublicSignalHandlers,
+} from "./public-lifecycle";
 
 function deferred(): { promise: Promise<void>; resolve(): void } {
   let resolve!: () => void;
@@ -43,16 +46,34 @@ test("drains an active HTTP request before it stops the embedded worker", async 
       events.push("worker.stopped");
     },
   });
-  const firstShutdown = lifecycle.shutdown();
-  const secondShutdown = lifecycle.shutdown();
+  const handlers: Record<"SIGINT" | "SIGTERM", Array<() => void>> = {
+    SIGINT: [],
+    SIGTERM: [],
+  };
+  const signalProcess = {
+    on(signal: "SIGINT" | "SIGTERM", listener: () => void) {
+      handlers[signal].push(listener);
+    },
+    off(signal: "SIGINT" | "SIGTERM", listener: () => void) {
+      handlers[signal] = handlers[signal].filter(
+        (candidate) => candidate !== listener,
+      );
+    },
+  };
 
-  expect(secondShutdown).toBe(firstShutdown);
+  installPublicSignalHandlers(lifecycle, signalProcess);
+  handlers.SIGTERM[0]!();
+  handlers.SIGTERM[0]!();
+
   await Bun.sleep(10);
   expect(events).toEqual(["request.started", "http.close.started"]);
+  expect(handlers.SIGTERM).toHaveLength(1);
 
   requestMayFinish.resolve();
   expect((await activeRequest).status).toBe(200);
-  await firstShutdown;
+  while (events.length < 5) {
+    await Bun.sleep(1);
+  }
 
   expect(events).toEqual([
     "request.started",
@@ -61,4 +82,6 @@ test("drains an active HTTP request before it stops the embedded worker", async 
     "http.close.finished",
     "worker.stopped",
   ]);
+  expect(handlers.SIGTERM).toHaveLength(0);
+  expect(handlers.SIGINT).toHaveLength(0);
 });

@@ -33,11 +33,12 @@ async function createSession(
   server: ReturnType<typeof buildServer>,
   organizationSlug = "northstar-presents",
   headers: Record<string, string> = sessionHeaders(),
+  url = "/api/lab/sessions",
 ): Promise<{ scopeId: string; token: string }> {
   const response = await server.inject({
     headers,
     method: "POST",
-    url: "/api/lab/sessions",
+    url,
     payload: { organizationSlug },
   });
 
@@ -127,6 +128,57 @@ describe("integration lab", () => {
 
     expect(limited.statusCode).toBe(429);
     expect(limited.headers["retry-after"]).toBeDefined();
+    await server.close();
+  });
+
+  test("limits all session query variants in one address bucket", async () => {
+    const server = buildServer();
+    const headers = { "x-forwarded-for": "198.51.100.32, 10.0.0.1" };
+    const sessionPaths = [
+      "/api/lab/sessions?retry=1",
+      "/api/lab/sessions?retry=1&retry=2",
+      "/api/lab/sessions?note=first%20session%20%F0%9F%8E%9F",
+    ];
+
+    for (let count = 0; count < 20; count += 1) {
+      await createSession(
+        server,
+        "northstar-presents",
+        headers,
+        sessionPaths[count % sessionPaths.length]!,
+      );
+    }
+
+    const limited = await server.inject({
+      headers,
+      method: "POST",
+      payload: { organizationSlug: "northstar-presents" },
+      url: "/api/lab/sessions?retry=1&retry=2&note=%F0%9F%8E%9F",
+    });
+    const otherPathHeaders = {
+      "x-forwarded-for": "198.51.100.33, 10.0.0.1",
+    };
+
+    for (let count = 0; count < 20; count += 1) {
+      const response = await server.inject({
+        headers: otherPathHeaders,
+        method: "POST",
+        payload: { organizationSlug: "northstar-presents" },
+        url: "/api/lab/session-history?retry=1",
+      });
+
+      expect(response.statusCode).toBe(404);
+    }
+
+    const untouchedSessionBucket = await server.inject({
+      headers: otherPathHeaders,
+      method: "POST",
+      payload: { organizationSlug: "northstar-presents" },
+      url: "/api/lab/sessions?retry=1",
+    });
+
+    expect(limited.statusCode).toBe(429);
+    expect(untouchedSessionBucket.statusCode).toBe(201);
     await server.close();
   });
 

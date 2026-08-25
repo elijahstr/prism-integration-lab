@@ -100,7 +100,19 @@ for (const scenario of scenarios) {
       `/integration-lab/?organization=northstar-presents&run=${firstRunId}`,
     );
     expect((await hiddenRunResponse).status()).toBe(404);
+    await expect(
+      isolatedPage.getByRole("heading", {
+        name: "The dashboard is unavailable",
+      }),
+    ).toBeVisible();
+    await expect(
+      isolatedPage.getByRole("heading", { name: scenario.title }),
+    ).toHaveCount(0);
     await expect(isolatedPage.getByText(scenario.normalized)).toHaveCount(0);
+    await expect(isolatedPage.getByText(scenario.databaseEffect)).toHaveCount(
+      0,
+    );
+    await expect(isolatedPage.getByText(scenario.audit)).toHaveCount(0);
     await isolatedContext.close();
   });
 }

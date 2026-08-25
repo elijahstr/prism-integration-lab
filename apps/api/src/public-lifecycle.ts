@@ -9,7 +9,23 @@ export type PublicLifecycle = {
 
 type SignalProcess = {
   exitCode?: number | string | null;
-  once(signal: "SIGINT" | "SIGTERM", listener: () => void): unknown;
+  off(signal: "SIGINT" | "SIGTERM", listener: () => void): unknown;
+  on(signal: "SIGINT" | "SIGTERM", listener: () => void): unknown;
+};
+
+const defaultSignalProcess: SignalProcess = {
+  get exitCode() {
+    return process.exitCode;
+  },
+  set exitCode(value) {
+    process.exitCode = value;
+  },
+  off(signal, listener) {
+    return (process as unknown as SignalProcess).off(signal, listener);
+  },
+  on(signal, listener) {
+    return (process as unknown as SignalProcess).on(signal, listener);
+  },
 };
 
 export function createPublicLifecycle(
@@ -29,14 +45,20 @@ export function createPublicLifecycle(
 
 export function installPublicSignalHandlers(
   lifecycle: PublicLifecycle,
-  processOwner: SignalProcess = process,
+  processOwner: SignalProcess = defaultSignalProcess,
 ): void {
   const shutdown = () => {
-    void lifecycle.shutdown().catch(() => {
-      processOwner.exitCode = 1;
-    });
+    void lifecycle
+      .shutdown()
+      .catch(() => {
+        processOwner.exitCode = 1;
+      })
+      .finally(() => {
+        processOwner.off("SIGTERM", shutdown);
+        processOwner.off("SIGINT", shutdown);
+      });
   };
 
-  processOwner.once("SIGTERM", shutdown);
-  processOwner.once("SIGINT", shutdown);
+  processOwner.on("SIGTERM", shutdown);
+  processOwner.on("SIGINT", shutdown);
 }
