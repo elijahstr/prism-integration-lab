@@ -11,6 +11,13 @@ import type { ScenarioClock } from "./lab";
 process.env.LAB_TOKEN_PEPPER = "test-lab-token-pepper";
 
 const createdScopeIds: string[] = [];
+let nextSessionAddress = 1;
+
+function sessionHeaders(): Record<string, string> {
+  const address = `198.51.102.${nextSessionAddress}`;
+  nextSessionAddress += 1;
+  return { "x-forwarded-for": `${address}, 10.0.0.1` };
+}
 
 class TestScenarioClock implements ScenarioClock {
   elapsedMs = 0;
@@ -25,8 +32,10 @@ class TestScenarioClock implements ScenarioClock {
 async function createSession(
   server: ReturnType<typeof buildServer>,
   organizationSlug = "northstar-presents",
+  headers: Record<string, string> = sessionHeaders(),
 ): Promise<{ scopeId: string; token: string }> {
   const response = await server.inject({
+    headers,
     method: "POST",
     url: "/api/lab/sessions",
     payload: { organizationSlug },
@@ -98,6 +107,70 @@ describe("integration lab", () => {
     });
 
     expect(overview.statusCode).toBe(200);
+    await server.close();
+  });
+
+  test("limits repeated lab sessions from one resolved address", async () => {
+    const server = buildServer();
+    const headers = { "x-forwarded-for": "198.51.100.31, 10.0.0.1" };
+
+    for (let count = 0; count < 20; count += 1) {
+      await createSession(server, "northstar-presents", headers);
+    }
+
+    const limited = await server.inject({
+      headers,
+      method: "POST",
+      payload: { organizationSlug: "northstar-presents" },
+      url: "/api/lab/sessions",
+    });
+
+    expect(limited.statusCode).toBe(429);
+    expect(limited.headers["retry-after"]).toBeDefined();
+    await server.close();
+  });
+
+  test("keeps a scenario limit when each request has a new lab token", async () => {
+    const server = buildServer();
+    const scenarioHeaders = { "x-forwarded-for": "198.51.100.42, 10.0.0.1" };
+    const tokens: string[] = [];
+
+    for (let count = 0; count < 20; count += 1) {
+      const session = await createSession(server, "northstar-presents", {
+        "x-forwarded-for": `198.51.101.${count + 1}, 10.0.0.1`,
+      });
+      tokens.push(session.token);
+      const response = await server.inject({
+        headers: { ...scenarioHeaders, authorization: `Lab ${session.token}` },
+        method: "POST",
+        url: "/api/lab/scenarios/not-a-scenario/run",
+      });
+
+      expect(response.statusCode).toBe(404);
+    }
+
+    const replacement = await createSession(server, "northstar-presents", {
+      "x-forwarded-for": "198.51.101.250, 10.0.0.1",
+    });
+    const limited = await server.inject({
+      headers: {
+        ...scenarioHeaders,
+        authorization: `Lab ${replacement.token}`,
+      },
+      method: "POST",
+      url: "/api/lab/scenarios/not-a-scenario/run",
+    });
+    const independent = await server.inject({
+      headers: {
+        authorization: `Lab ${tokens[0]!}`,
+        "x-forwarded-for": "198.51.100.43, 10.0.0.1",
+      },
+      method: "POST",
+      url: "/api/lab/scenarios/not-a-scenario/run",
+    });
+
+    expect(limited.statusCode).toBe(429);
+    expect(independent.statusCode).toBe(404);
     await server.close();
   });
 

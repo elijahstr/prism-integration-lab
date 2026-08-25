@@ -18,17 +18,16 @@ import { registerWebhookRoutes } from "./routes/webhooks";
 
 export type BuildServerOptions = { lab?: LabRouteDependencies };
 
-const scenarioWindowMs = 5 * 60 * 1_000;
+const rateWindowMs = 5 * 60 * 1_000;
+const sessionAddressLimit = 20;
 const scenarioLimit = 20;
-const maxScenarioRateKeys = 10_000;
-const scenarioRequests = new Map<string, number[]>();
+const maxRateKeys = 10_000;
+const sessionAddressRequests = new Map<string, number[]>();
+const scenarioAddressRequests = new Map<string, number[]>();
+const scenarioTokenRequests = new Map<string, number[]>();
 
-function leftMostAddress(request: FastifyRequest): string {
-  const forwarded = request.headers["x-forwarded-for"];
-  const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  const address = value?.split(",")[0]?.trim();
-
-  return address || request.ip;
+function resolvedClientAddress(request: FastifyRequest): string {
+  return request.ip;
 }
 
 function scenarioRateLimitKey(request: FastifyRequest): string {
@@ -36,51 +35,55 @@ function scenarioRateLimitKey(request: FastifyRequest): string {
     .update(request.headers.authorization ?? "")
     .digest("hex");
 
-  return `${leftMostAddress(request)}:${tokenHash}`;
+  return `${resolvedClientAddress(request)}:${tokenHash}`;
 }
 
-function pruneScenarioRateKeys(now: number): void {
-  for (const [key, requests] of scenarioRequests) {
+function pruneRateKeys(
+  requestsByKey: Map<string, number[]>,
+  now: number,
+): void {
+  for (const [key, requests] of requestsByKey) {
     const activeRequests = requests.filter(
-      (requestedAt) => requestedAt > now - scenarioWindowMs,
+      (requestedAt) => requestedAt > now - rateWindowMs,
     );
 
     if (activeRequests.length === 0) {
-      scenarioRequests.delete(key);
+      requestsByKey.delete(key);
       continue;
     }
 
-    scenarioRequests.set(key, activeRequests);
+    requestsByKey.set(key, activeRequests);
   }
 
-  while (scenarioRequests.size >= maxScenarioRateKeys) {
-    const oldestKey = scenarioRequests.keys().next().value;
+  while (requestsByKey.size >= maxRateKeys) {
+    const oldestKey = requestsByKey.keys().next().value;
 
     if (!oldestKey) {
       return;
     }
 
-    scenarioRequests.delete(oldestKey);
+    requestsByKey.delete(oldestKey);
   }
 }
 
-function enforceScenarioRateLimit(
-  request: FastifyRequest,
+function enforceRateLimit(
   reply: FastifyReply,
+  requestsByKey: Map<string, number[]>,
+  key: string,
+  limit: number,
 ): boolean {
   const now = Date.now();
-  const key = scenarioRateLimitKey(request);
-  if (!scenarioRequests.has(key)) {
-    pruneScenarioRateKeys(now);
+  if (!requestsByKey.has(key)) {
+    pruneRateKeys(requestsByKey, now);
   }
-  const requests = (scenarioRequests.get(key) ?? []).filter(
-    (requestedAt) => requestedAt > now - scenarioWindowMs,
+  const requests = (requestsByKey.get(key) ?? []).filter(
+    (requestedAt) => requestedAt > now - rateWindowMs,
   );
 
-  if (requests.length >= scenarioLimit) {
+  if (requests.length >= limit) {
     const retryAfterSeconds = Math.max(
       1,
-      Math.ceil((requests[0]! + scenarioWindowMs - now) / 1_000),
+      Math.ceil((requests[0]! + rateWindowMs - now) / 1_000),
     );
     reply.header("retry-after", String(retryAfterSeconds));
     reply.code(429).send({ message: "Too many scenario runs" });
@@ -88,7 +91,7 @@ function enforceScenarioRateLimit(
   }
 
   requests.push(now);
-  scenarioRequests.set(key, requests);
+  requestsByKey.set(key, requests);
   return false;
 }
 
@@ -118,12 +121,36 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   server.setErrorHandler((error, _request, reply) => sendError(reply, error));
   server.get("/health", async () => ({ status: "ok" }));
   server.addHook("onRequest", (request, reply, done) => {
-    if (
-      request.method === "POST" &&
-      request.url.startsWith("/api/lab/scenarios/")
-    ) {
-      if (enforceScenarioRateLimit(request, reply)) {
+    if (request.method === "POST") {
+      if (
+        request.url === "/api/lab/sessions" &&
+        enforceRateLimit(
+          reply,
+          sessionAddressRequests,
+          resolvedClientAddress(request),
+          sessionAddressLimit,
+        )
+      ) {
         return;
+      }
+
+      if (request.url.startsWith("/api/lab/scenarios/")) {
+        if (
+          enforceRateLimit(
+            reply,
+            scenarioTokenRequests,
+            scenarioRateLimitKey(request),
+            scenarioLimit,
+          ) ||
+          enforceRateLimit(
+            reply,
+            scenarioAddressRequests,
+            resolvedClientAddress(request),
+            scenarioLimit,
+          )
+        ) {
+          return;
+        }
       }
     }
 

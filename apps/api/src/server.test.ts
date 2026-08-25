@@ -4,7 +4,7 @@ import { buildServer } from "./server";
 
 test("stops a rate-limited scenario request before route handling", async () => {
   const server = buildServer();
-  const clientAddress = `198.51.100.${Math.floor(Math.random() * 200) + 1}`;
+  const clientAddress = "198.51.100.200";
   const headers = {
     authorization: "Lab rate-limit-test-token",
     "x-forwarded-for": `${clientAddress}, 10.0.0.1`,

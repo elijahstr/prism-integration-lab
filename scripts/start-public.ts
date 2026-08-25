@@ -2,11 +2,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildServer, registerPublicStatic } from "../apps/api/src/server";
+import {
+  createPublicLifecycle,
+  installPublicSignalHandlers,
+} from "../apps/api/src/public-lifecycle";
 import { migrate } from "../packages/database/scripts/migrate";
 import { seed } from "../packages/database/scripts/seed";
 import { sql } from "../packages/database/src/client";
 import { getBullMqConnection } from "../apps/worker/src/queue";
-import { startWorker } from "../apps/worker/src/runtime";
+import { startWorker, stopWorker } from "../apps/worker/src/runtime";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const webRoot = join(scriptDirectory, "../apps/web/out");
@@ -43,3 +47,7 @@ server.get("/ready", async (_request, reply) => {
 
 startWorker();
 await server.listen({ host: "0.0.0.0", port });
+
+installPublicSignalHandlers(
+  createPublicLifecycle({ closeHttp: () => server.close(), stopWorker }),
+);

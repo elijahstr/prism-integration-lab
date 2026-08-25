@@ -107,7 +107,3 @@ export function startWorker(): void {
 export function stopWorker(): Promise<void> {
   return runtime.stop();
 }
-
-process.once("SIGTERM", () => {
-  void stopWorker().finally(() => process.exit(0));
-});

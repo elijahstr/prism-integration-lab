@@ -82,15 +82,25 @@ for (const scenario of scenarios) {
     await expect(trace.getByText(scenario.databaseEffect)).toBeVisible();
     await expect(trace.getByText("Audit result")).toBeVisible();
     await expect(trace.getByText(scenario.audit)).toBeVisible();
+    const firstRunUrl = new URL(page.url());
+    const firstRunId = firstRunUrl.searchParams.get("run");
+
+    expect(firstRunId).not.toBeNull();
 
     const isolatedContext = await browser.newContext();
     const isolatedPage = await isolatedContext.newPage();
     await isolatedPage.goto("/integration-lab");
-    const isolatedTrace = isolatedPage.locator(".trace-panel");
-    await expect(
-      isolatedTrace.getByRole("heading", { name: "No run selected" }),
-    ).toBeVisible();
-    await expect(isolatedTrace).not.toContainText(scenario.normalized);
+    await expect(isolatedPage.getByText("Scenario library")).toBeVisible();
+    const hiddenRunResponse = isolatedPage.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/lab/runs/${firstRunId}`) &&
+        response.request().method() === "GET",
+    );
+    await isolatedPage.goto(
+      `/integration-lab/?organization=northstar-presents&run=${firstRunId}`,
+    );
+    expect((await hiddenRunResponse).status()).toBe(404);
+    await expect(isolatedPage.getByText(scenario.normalized)).toHaveCount(0);
     await isolatedContext.close();
   });
 }
