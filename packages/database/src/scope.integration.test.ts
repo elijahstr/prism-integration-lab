@@ -103,16 +103,15 @@ describe("scoped ingestion storage", () => {
     await dispatchMessage(accepted.messageId);
   });
 
-  test("orders and pages messages by received time and identifier", async () => {
+  test("returns and pages the newest 50 messages first", async () => {
     const testScope = await createReadTestScope();
     const prefix = `message-${crypto.randomUUID()}`;
-    const values = [
-      [`${prefix}-c`, "delivery-c", "2026-08-24T11:59:00.000Z"],
-      [`${prefix}-b`, "delivery-b", "2026-08-24T12:00:00.000Z"],
-      [`${prefix}-a`, "delivery-a", "2026-08-24T12:00:00.000Z"],
-    ] as const;
-
-    for (const [id, deliveryId, receivedAt] of values) {
+    for (let index = 0; index < 55; index += 1) {
+      const suffix = String(index).padStart(2, "0");
+      const id = `${prefix}-${suffix}`;
+      const receivedAt = new Date(
+        Date.UTC(2026, 7, 24, 12, 0, Math.min(index, 53)),
+      ).toISOString();
       await sql`
         INSERT INTO ingestion_messages (
           id, scope_id, organization_id, connection_id, provider, delivery_id,
@@ -121,32 +120,46 @@ describe("scoped ingestion storage", () => {
         )
         VALUES (
           ${id}, ${testScope.scopeId}, ${testScope.organizationId},
-          ${`connection-${testScope.scopeId}`}, 'encoretix', ${deliveryId},
+          ${`connection-${testScope.scopeId}`}, 'encoretix', ${`delivery-${suffix}`},
           'event-read-order', 'sale_delta', ${receivedAt}, ${receivedAt},
           ${receivedAt}, ${`sha256:${id}`}, '{}'::jsonb
         )
       `;
     }
 
+    const firstPage = await readMessages(testScope);
+
+    expect(firstPage).toHaveLength(50);
+    expect(firstPage.slice(0, 5).map((message) => message.id)).toEqual([
+      `${prefix}-54`,
+      `${prefix}-53`,
+      `${prefix}-52`,
+      `${prefix}-51`,
+      `${prefix}-50`,
+    ]);
+    expect(firstPage.at(-1)?.id).toBe(`${prefix}-05`);
     expect(
-      (await readMessages(testScope)).map((message) => message.id),
-    ).toEqual([`${prefix}-c`, `${prefix}-a`, `${prefix}-b`]);
-    expect(
-      (await readMessages(testScope, `${prefix}-a`)).map(
+      (await readMessages(testScope, `${prefix}-05`)).map(
         (message) => message.id,
       ),
-    ).toEqual([`${prefix}-b`]);
+    ).toEqual([
+      `${prefix}-04`,
+      `${prefix}-03`,
+      `${prefix}-02`,
+      `${prefix}-01`,
+      `${prefix}-00`,
+    ]);
   });
 
-  test("orders and pages reviews by creation time and identifier", async () => {
+  test("returns and pages the newest 50 reviews first", async () => {
     const testScope = await createReadTestScope();
-    const values = [
-      ["review-c", "2026-08-24T11:59:00.000Z"],
-      ["review-b", "2026-08-24T12:00:00.000Z"],
-      ["review-a", "2026-08-24T12:00:00.000Z"],
-    ] as const;
-
-    for (const [id, createdAt] of values) {
+    const prefix = `review-${crypto.randomUUID()}`;
+    for (let index = 0; index < 55; index += 1) {
+      const suffix = String(index).padStart(2, "0");
+      const id = `${prefix}-${suffix}`;
+      const createdAt = new Date(
+        Date.UTC(2026, 7, 24, 12, 0, Math.min(index, 53)),
+      ).toISOString();
       await sql`
         INSERT INTO review_items (
           id, scope_id, organization_id, kind, created_at
@@ -158,14 +171,26 @@ describe("scoped ingestion storage", () => {
       `;
     }
 
-    expect((await readReviews(testScope)).map((review) => review.id)).toEqual([
-      "review-c",
-      "review-a",
-      "review-b",
+    const firstPage = await readReviews(testScope);
+
+    expect(firstPage).toHaveLength(50);
+    expect(firstPage.slice(0, 5).map((review) => review.id)).toEqual([
+      `${prefix}-54`,
+      `${prefix}-53`,
+      `${prefix}-52`,
+      `${prefix}-51`,
+      `${prefix}-50`,
     ]);
+    expect(firstPage.at(-1)?.id).toBe(`${prefix}-05`);
     expect(
-      (await readReviews(testScope, "review-a")).map((review) => review.id),
-    ).toEqual(["review-b"]);
+      (await readReviews(testScope, `${prefix}-05`)).map((review) => review.id),
+    ).toEqual([
+      `${prefix}-04`,
+      `${prefix}-03`,
+      `${prefix}-02`,
+      `${prefix}-01`,
+      `${prefix}-00`,
+    ]);
   });
 
   test("rejects a webhook key identifier used by another scope", async () => {

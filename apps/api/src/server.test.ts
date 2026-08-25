@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { buildServer } from "./server";
+import { MAX_WEBHOOK_BYTES } from "./http/raw-json";
 
 describe("API server boundaries", () => {
   test("uses the immediate proxy address despite spoofed forwarded prefixes", async () => {
@@ -134,5 +135,26 @@ describe("API server boundaries", () => {
     });
     expect(logLines.join("\n")).toContain("Unexpected request error");
     expect(logLines.join("\n")).not.toContain("secret-log-token");
+  });
+
+  test("preserves an oversized request status without exposing its body", async () => {
+    const server = buildServer();
+    const secret = "oversized-body-secret";
+    const response = await server.inject({
+      headers: { "content-type": "application/json" },
+      method: "POST",
+      payload: {
+        value: secret.repeat(Math.ceil(MAX_WEBHOOK_BYTES / secret.length)),
+      },
+      url: "/webhooks/encoretix",
+    });
+
+    expect(response.statusCode).toBe(413);
+    expect(response.json() as { error: string }).toEqual({
+      error: "Invalid request",
+    });
+    expect(response.body).not.toContain(secret);
+    expect(response.body).not.toContain("stack");
+    await server.close();
   });
 });

@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import type { MessageDto } from "@prism/contracts";
 
 import {
   formatCurrency,
   formatSyncDelay,
+  recentActivityMessages,
   sumProviderTicketFacts,
 } from "./format";
 
@@ -24,5 +26,26 @@ describe("dashboard format helpers", () => {
         { provider: "boxgrid", soldTickets: 600, refundedTickets: 0 },
       ]),
     ).toBe(1000);
+  });
+
+  test("selects the first five messages from a newest-first page larger than 50", () => {
+    const messages: MessageDto[] = Array.from({ length: 55 }, (_, index) => ({
+      deliveryId: `delivery-${54 - index}`,
+      id: `message-${String(54 - index).padStart(2, "0")}`,
+      provider: "encoretix",
+      receivedAt: new Date(
+        Date.UTC(2026, 7, 24, 12, 0, 54 - index),
+      ).toISOString(),
+      state: "applied",
+    }));
+    expect(
+      recentActivityMessages(messages).map((message) => message.id),
+    ).toEqual([
+      "message-54",
+      "message-53",
+      "message-52",
+      "message-51",
+      "message-50",
+    ]);
   });
 });

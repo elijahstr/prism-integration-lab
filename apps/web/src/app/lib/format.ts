@@ -1,3 +1,5 @@
+import type { MessageDto } from "@prism/contracts";
+
 type TicketFactCount = {
   provider: string;
   refundedTickets: number;
@@ -41,6 +43,12 @@ export function formatTimestamp(timestamp: string | null): string {
     timeZone: "UTC",
     timeZoneName: "short",
   }).format(new Date(timestamp));
+}
+
+export function recentActivityMessages(
+  messages: readonly MessageDto[],
+): MessageDto[] {
+  return messages.slice(0, 5);
 }
 
 export function sumProviderTicketFacts(facts: TicketFactCount[]): number {

@@ -310,6 +310,52 @@ describe("integration lab", () => {
     await server.close();
   });
 
+  test("returns the true newest messages when a scope has more than 50", async () => {
+    const server = buildServer();
+    const session = await createSession(server);
+    const prefix = `api-recent-${crypto.randomUUID()}`;
+
+    for (let index = 0; index < 55; index += 1) {
+      const suffix = String(index).padStart(2, "0");
+      const id = `${prefix}-${suffix}`;
+      const receivedAt = new Date(
+        Date.UTC(2026, 7, 24, 12, 0, Math.min(index, 53)),
+      ).toISOString();
+      await sql`
+        INSERT INTO ingestion_messages (
+          id, scope_id, organization_id, connection_id, provider, delivery_id,
+          external_event_id, kind, source_occurred_at, received_at,
+          source_version, checksum, payload, state
+        )
+        VALUES (
+          ${id}, ${session.scopeId}, 'organization-northstar',
+          ${`${session.scopeId}:connection-northstar-encoretix`},
+          'encoretix', ${`delivery-${suffix}`}, 'event-api-recent',
+          'sale_delta', ${receivedAt}, ${receivedAt}, ${receivedAt},
+          ${`sha256:${id}`}, '{}'::jsonb, 'applied'
+        )
+      `;
+    }
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/messages",
+      headers: { authorization: `Lab ${session.token}` },
+    });
+    const messages = response.json() as Array<{ id: string }>;
+
+    expect(response.statusCode).toBe(200);
+    expect(messages).toHaveLength(50);
+    expect(messages.slice(0, 5).map((message) => message.id)).toEqual([
+      `${prefix}-54`,
+      `${prefix}-53`,
+      `${prefix}-52`,
+      `${prefix}-51`,
+      `${prefix}-50`,
+    ]);
+    await server.close();
+  });
+
   test("records observed outage and rate-limit poll evidence", async () => {
     const clock = new TestScenarioClock();
     const server = buildServer({

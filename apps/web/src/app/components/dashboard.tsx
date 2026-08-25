@@ -38,6 +38,7 @@ import {
   formatCurrency,
   formatSyncDelay,
   formatTimestamp,
+  recentActivityMessages,
   sumProviderTicketFacts,
 } from "../lib/format";
 import {
@@ -271,7 +272,7 @@ function Overview({
               </tr>
             </thead>
             <tbody>
-              {data.messages.slice(-5).map((message) => (
+              {recentActivityMessages(data.messages).map((message) => (
                 <tr key={message.id}>
                   <td>{providerName(message.provider)}</td>
                   <td>
