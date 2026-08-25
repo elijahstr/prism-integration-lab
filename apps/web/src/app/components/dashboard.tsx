@@ -21,7 +21,6 @@ import {
   OverviewDtoSchema,
   ProviderDtoSchema,
   ReviewDtoSchema,
-  ScenarioRunDtoSchema,
   ShowDtoSchema,
 } from "@prism/contracts";
 
@@ -32,6 +31,8 @@ import {
   getScenarioRun,
   rejectReview,
   replayMessage as requestMessageReplay,
+  resetScenarioRun as requestScenarioReset,
+  runScenario as requestScenarioRun,
 } from "../lib/api";
 import {
   formatCurrency,
@@ -797,12 +798,7 @@ export function DashboardPage({
       );
     });
     try {
-      const nextRun = await dashboardRequest(
-        token,
-        `/api/lab/scenarios/${scenario}/run`,
-        ScenarioRunDtoSchema,
-        { method: "POST" },
-      );
+      const nextRun = await requestScenarioRun(token, scenario);
       commitAction(actionGeneration, () => {
         setRun(nextRun);
         replaceRouteState(withScenarioRun(routeState, nextRun.id));
@@ -850,12 +846,7 @@ export function DashboardPage({
       setLabStatus("Resetting the scenario run.");
     });
     try {
-      await dashboardRequest(
-        token,
-        `/api/lab/runs/${run.id}/reset`,
-        { parse: (value) => value },
-        { method: "POST" },
-      );
+      await requestScenarioReset(token, run.id);
       commitAction(actionGeneration, () => {
         setRun(null);
         replaceRouteState({ ...routeState, runId: null });

@@ -117,8 +117,14 @@ export function runScenario(
   token: string,
   scenario: ScenarioId,
   fetcher?: Fetcher,
-): Promise<void> {
-  return postAction(token, `/api/lab/scenarios/${scenario}/run`, fetcher);
+): Promise<ScenarioRunDto> {
+  return dashboardRequest(
+    token,
+    `/api/lab/scenarios/${scenario}/run`,
+    ScenarioRunDtoSchema,
+    { method: "POST" },
+    fetcher,
+  );
 }
 
 export function resetScenarioRun(

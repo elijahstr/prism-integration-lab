@@ -1,5 +1,3 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 import type { FastifyInstance } from "fastify";
 import {
   ProviderEnvelopeSchema,
@@ -11,6 +9,7 @@ import {
   sql,
 } from "../../../../packages/database/src/client";
 import { acceptMessage } from "../../../../packages/database/src/ingestion";
+import { verifyEncoreSignature } from "../../../../packages/providers/src/encoretix/signing";
 
 import { HttpError } from "../http/errors";
 import { parseRawJson } from "../http/raw-json";
@@ -30,21 +29,6 @@ function headerValue(value: string | string[] | undefined): string {
   }
 
   return value;
-}
-
-function verifySignature(
-  raw: Uint8Array,
-  signature: string,
-  secret: string,
-): boolean {
-  const expected = createHmac("sha256", secret).update(raw).digest("hex");
-  const expectedBytes = Buffer.from(expected);
-  const signatureBytes = Buffer.from(signature);
-
-  return (
-    expectedBytes.length === signatureBytes.length &&
-    timingSafeEqual(expectedBytes, signatureBytes)
-  );
 }
 
 function assertFresh(envelope: ProviderEnvelope): void {
@@ -85,7 +69,11 @@ export function registerWebhookRoutes(server: FastifyInstance): void {
       }
 
       if (
-        !verifySignature(raw, signature, deriveWebhookSecret(connection.id))
+        !verifyEncoreSignature(
+          raw,
+          signature,
+          deriveWebhookSecret(connection.id),
+        )
       ) {
         throw new HttpError(401, "Webhook signature is invalid");
       }

@@ -22,11 +22,22 @@ function response(body: unknown): Response {
 
 function recordingFetch(calls: RecordedCall[]) {
   return async (input: string | URL | Request, init?: RequestInit) => {
-    calls.push({ init, path: input.toString() });
-    return response({
-      expiresAt: "2026-08-24T12:00:00.000Z",
-      token: "token-123",
-    });
+    const path = input.toString();
+
+    calls.push({ init, path });
+    return response(
+      path.startsWith("/api/lab/scenarios/")
+        ? {
+            id: "run-123",
+            scenario: "provider_change",
+            state: "applied",
+            trace: [],
+          }
+        : {
+            expiresAt: "2026-08-24T12:00:00.000Z",
+            token: "token-123",
+          },
+    );
   };
 }
 
@@ -100,7 +111,14 @@ describe("dashboard API actions", () => {
     await approveReview("token-123", "review-1", fetcher);
     await rejectReview("token-123", "review-1", fetcher);
     await replayMessage("token-123", "message-1", fetcher);
-    await runScenario("token-123", "provider_change", fetcher);
+    await expect(
+      runScenario("token-123", "provider_change", fetcher),
+    ).resolves.toEqual({
+      id: "run-123",
+      scenario: "provider_change",
+      state: "applied",
+      trace: [],
+    });
     await resetScenarioRun("token-123", "run-1", fetcher);
 
     expect(
