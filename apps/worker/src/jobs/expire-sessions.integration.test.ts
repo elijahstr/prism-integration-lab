@@ -1,13 +1,10 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 
-import { migrate } from "../../../../packages/database/scripts/migrate";
-import { seed } from "../../../../packages/database/scripts/seed";
-import {
-  createLabSession,
-  startScenarioRun,
-} from "../../../../packages/database/src/lab";
-import { sql } from "../../../../packages/database/src/client";
-import { acceptMessage } from "../../../../packages/database/src/ingestion";
+import { migrate } from "@prism/database/migrate";
+import { seed } from "@prism/database/seed";
+import { createLabSession, startScenarioRun } from "@prism/database/lab";
+import { sql } from "@prism/database";
+import { acceptMessage } from "@prism/database/ingestion";
 
 import { expireSessions } from "./expire-sessions";
 

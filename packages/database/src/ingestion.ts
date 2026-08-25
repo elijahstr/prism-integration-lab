@@ -18,6 +18,7 @@ export type OutboxRow = {
   dispatchAttempts: number;
   id: string;
   messageId: string;
+  organizationId: string;
   scopeId: string;
 };
 
@@ -160,13 +161,21 @@ export async function acceptMessage(
         INSERT INTO review_items (
           id, scope_id, organization_id, message_id, kind, details
         )
-        VALUES (
+        SELECT
           ${randomUUID()},
           ${scope.scopeId},
           ${scope.organizationId},
           ${duplicate.id},
           'checksum_conflict',
           ${transaction.json(details)}
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM review_items
+          WHERE scope_id = ${scope.scopeId}
+            AND organization_id = ${scope.organizationId}
+            AND message_id = ${duplicate.id}
+            AND kind = 'checksum_conflict'
+            AND state = 'pending'
         )
       `;
 
@@ -319,6 +328,7 @@ export async function claimOutbox(limit: number): Promise<OutboxRow[]> {
       RETURNING
         outbox.id,
         outbox.scope_id AS "scopeId",
+        outbox.organization_id AS "organizationId",
         outbox.message_id AS "messageId",
         outbox.dispatch_attempts AS "dispatchAttempts"
     `,
@@ -355,6 +365,7 @@ export async function markMessageFailed(
   messageId: string,
   error: string,
   attempts: number,
+  scope: Scope,
 ): Promise<void> {
   await sql.begin(async (transaction) => {
     const messages = await transaction<
@@ -365,6 +376,8 @@ export async function markMessageFailed(
         scope_id AS "scopeId"
       FROM ingestion_messages
       WHERE id = ${messageId}
+        AND scope_id = ${scope.scopeId}
+        AND organization_id = ${scope.organizationId}
       FOR UPDATE
     `;
     const message = messages[0];
@@ -377,6 +390,8 @@ export async function markMessageFailed(
       UPDATE ingestion_messages
       SET state = 'failed'
       WHERE id = ${messageId}
+        AND scope_id = ${scope.scopeId}
+        AND organization_id = ${scope.organizationId}
         AND state NOT IN ('applied', 'ignored_old', 'needs_review', 'failed')
       RETURNING id
     `;

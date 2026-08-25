@@ -30,7 +30,7 @@ CREATE TABLE provider_connections (
   scope_id text NOT NULL,
   organization_id text NOT NULL,
   provider text NOT NULL CHECK (provider IN ('encoretix', 'venuewave', 'boxgrid')),
-  public_webhook_key_id text NOT NULL,
+  public_webhook_key_id text NOT NULL UNIQUE,
   state text NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'disabled')),
   poll_cursor text,
   last_successful_at timestamptz,

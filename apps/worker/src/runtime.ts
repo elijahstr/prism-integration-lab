@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 
-import { sql } from "../../../packages/database/src/client";
+import { sql } from "@prism/database";
 
 import { dispatchOutboxBatch } from "./jobs/dispatch-outbox";
 import { expireSessions } from "./jobs/expire-sessions";

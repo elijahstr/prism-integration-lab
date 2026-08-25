@@ -3,10 +3,10 @@ import { createHmac, randomUUID } from "node:crypto";
 
 import type { ProviderEnvelope } from "@prism/contracts";
 
-import { migrate } from "../../../../packages/database/scripts/migrate";
-import { seed } from "../../../../packages/database/scripts/seed";
-import { sql } from "../../../../packages/database/src/client";
-import { acceptMessage } from "../../../../packages/database/src/ingestion";
+import { sql } from "@prism/database";
+import { acceptMessage } from "@prism/database/ingestion";
+import { migrate } from "@prism/database/migrate";
+import { seed } from "@prism/database/seed";
 import { buildServer } from "../server";
 
 process.env.LAB_TOKEN_PEPPER = "test-lab-token-pepper";

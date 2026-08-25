@@ -8,9 +8,7 @@ import {
 
 describe("action feedback", () => {
   test("keeps an action error visible after dashboard data has loaded", () => {
-    expect(actionErrorMessage("The replay failed.", true)).toBe(
-      "The replay failed.",
-    );
+    expect(actionErrorMessage("The replay failed.")).toBe("The replay failed.");
   });
 
   test("selects the stable main region as the action focus target", () => {

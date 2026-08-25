@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
-import { replayMessage } from "../../../../packages/database/src/ingestion";
+import { replayMessage } from "@prism/database/ingestion";
 
 import { HttpError } from "../http/errors";
 import { resolveLabScope } from "../http/lab-scope";

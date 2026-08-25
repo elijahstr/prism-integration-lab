@@ -1,4 +1,4 @@
-import { expireLabSessions } from "../../../../packages/database/src/lab";
+import { expireLabSessions } from "@prism/database/lab";
 
 export function expireSessions(): Promise<number> {
   return expireLabSessions();

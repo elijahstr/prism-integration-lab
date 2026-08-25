@@ -6,7 +6,7 @@ import {
   type VenueWavePollResponse,
 } from "@prism/providers";
 
-import { sql } from "../../../../packages/database/src/client";
+import { sql } from "@prism/database";
 
 export type VenueWavePageClient = {
   getPage(cursor: string | null): VenueWavePollResponse | undefined;

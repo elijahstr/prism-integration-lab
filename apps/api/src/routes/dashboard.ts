@@ -7,7 +7,7 @@ import {
   readProviders,
   readReviews,
   readShows,
-} from "../../../../packages/database/src/reads";
+} from "@prism/database/reads";
 
 import { HttpError } from "../http/errors";
 import { resolveLabScope } from "../http/lab-scope";

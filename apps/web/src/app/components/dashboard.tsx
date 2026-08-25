@@ -101,7 +101,7 @@ const scenarios: Array<{
   },
   {
     description:
-      "An older sale update follows a newer refund and stays ignored.",
+      "An older immutable sale arrives after a newer sale and still applies once.",
     id: "late_update",
     title: "Late update",
   },
@@ -943,7 +943,7 @@ export function DashboardPage({
       status={labStatus}
     />
   ) : null;
-  const visibleError = actionErrorMessage(error, data !== null);
+  const visibleError = actionErrorMessage(error);
 
   return (
     <DashboardShell

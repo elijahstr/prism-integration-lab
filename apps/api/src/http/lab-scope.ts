@@ -2,8 +2,7 @@ import { createHmac } from "node:crypto";
 
 import type { FastifyRequest } from "fastify";
 
-import { sql } from "../../../../packages/database/src/client";
-import type { Scope } from "../../../../packages/database/src/scope";
+import { sql, type Scope } from "@prism/database";
 
 import { HttpError } from "./errors";
 

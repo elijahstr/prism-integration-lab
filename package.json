@@ -14,8 +14,13 @@
     "format:check": "prettier --check .",
     "test": "bun test --path-ignore-patterns='**/tests/e2e/**'",
     "test:e2e": "playwright test",
-    "typecheck": "bun run --cwd apps/api typecheck && bun run --cwd apps/web typecheck && tsc --noEmit -p packages/contracts && tsc --noEmit -p packages/database && tsc --noEmit -p apps/worker",
+    "typecheck": "bun run typegen && bun run typecheck:workspace",
+    "typecheck:workspace": "bun run --cwd apps/api typecheck && bun run --cwd apps/web typecheck && tsc --noEmit -p packages/contracts && tsc --noEmit -p packages/database && tsc --noEmit -p packages/domain && tsc --noEmit -p packages/providers && tsc --noEmit -p apps/worker",
+    "typegen": "bun run --cwd apps/web typegen",
     "verify": "bun run format:check && bun run typecheck && bun run test && bun run build && bun run test:e2e"
+  },
+  "dependencies": {
+    "@prism/database": "workspace:*"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 
-import { migrate } from "../../../../packages/database/scripts/migrate";
-import { seed } from "../../../../packages/database/scripts/seed";
-import { sql } from "../../../../packages/database/src/client";
+import { sql } from "@prism/database";
+import { migrate } from "@prism/database/migrate";
+import { seed } from "@prism/database/seed";
 import { pollVenueWave } from "./poll-venuewave";
 
 const connectionId = "connection-northstar-venuewave";

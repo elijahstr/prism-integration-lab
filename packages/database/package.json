@@ -3,6 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ingestion": "./src/ingestion.ts",
+    "./lab": "./src/lab.ts",
+    "./migrate": "./scripts/migrate.ts",
+    "./reads": "./src/reads.ts",
+    "./seed": "./scripts/seed.ts"
+  },
   "dependencies": {
     "@prism/contracts": "workspace:*",
     "postgres": "3.4.9"

@@ -6,11 +6,12 @@ import {
   createPublicLifecycle,
   installPublicSignalHandlers,
 } from "../apps/api/src/public-lifecycle";
-import { migrate } from "../packages/database/scripts/migrate";
-import { seed } from "../packages/database/scripts/seed";
-import { sql } from "../packages/database/src/client";
+import { sql } from "@prism/database";
+import { migrate } from "@prism/database/migrate";
+import { seed } from "@prism/database/seed";
 import { getBullMqConnection } from "../apps/worker/src/queue";
 import { startWorker, stopWorker } from "../apps/worker/src/runtime";
+import { validatePublicEnvironment } from "./public-environment";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const webRoot = join(scriptDirectory, "../apps/web/out");
@@ -28,6 +29,7 @@ function timeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
   ]);
 }
 
+validatePublicEnvironment(process.env);
 await migrate();
 await seed();
 

@@ -2,10 +2,7 @@ type FocusDocument = {
   getElementById(id: string): { focus(): void } | null;
 };
 
-export function actionErrorMessage(
-  error: string | null,
-  _hasDashboardData: boolean,
-): string | null {
+export function actionErrorMessage(error: string | null): string | null {
   return error;
 }
 

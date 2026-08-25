@@ -143,8 +143,17 @@ export async function readMessages(
     FROM ingestion_messages
     WHERE scope_id = ${scope.scopeId}
       AND organization_id = ${scope.organizationId}
-      AND (${cursor ?? null}::text IS NULL OR id > ${cursor ?? null}::text)
-    ORDER BY id
+      AND (
+        ${cursor ?? null}::text IS NULL
+        OR (received_at, id) > (
+          SELECT received_at, id
+          FROM ingestion_messages AS cursor_message
+          WHERE cursor_message.scope_id = ${scope.scopeId}
+            AND cursor_message.organization_id = ${scope.organizationId}
+            AND cursor_message.id = ${cursor ?? null}
+        )
+      )
+    ORDER BY received_at, id
     LIMIT ${Math.min(Math.max(limit, 1), 100)}
   `;
 
@@ -161,8 +170,17 @@ export async function readReviews(
     FROM review_items
     WHERE scope_id = ${scope.scopeId}
       AND organization_id = ${scope.organizationId}
-      AND (${cursor ?? null}::text IS NULL OR id > ${cursor ?? null}::text)
-    ORDER BY id
+      AND (
+        ${cursor ?? null}::text IS NULL
+        OR (created_at, id) > (
+          SELECT created_at, id
+          FROM review_items AS cursor_review
+          WHERE cursor_review.scope_id = ${scope.scopeId}
+            AND cursor_review.organization_id = ${scope.organizationId}
+            AND cursor_review.id = ${cursor ?? null}
+        )
+      )
+    ORDER BY created_at, id
     LIMIT ${Math.min(Math.max(limit, 1), 100)}
   `;
 

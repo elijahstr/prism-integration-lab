@@ -4,12 +4,9 @@ import {
   type ProviderEnvelope,
 } from "@prism/contracts";
 
-import {
-  deriveWebhookSecret,
-  sql,
-} from "../../../../packages/database/src/client";
-import { acceptMessage } from "../../../../packages/database/src/ingestion";
-import { verifyEncoreSignature } from "../../../../packages/providers/src/encoretix/signing";
+import { deriveWebhookSecret, sql } from "@prism/database";
+import { acceptMessage } from "@prism/database/ingestion";
+import { verifyEncoreSignature } from "@prism/providers";
 
 import { HttpError } from "../http/errors";
 import { parseRawJson } from "../http/raw-json";

@@ -7,7 +7,7 @@ import Fastify, {
   type FastifyRequest,
 } from "fastify";
 
-import { sendError } from "./http/errors";
+import { HttpError, sendError } from "./http/errors";
 import { MAX_WEBHOOK_BYTES } from "./http/raw-json";
 import { registerDashboardRoutes } from "./routes/dashboard";
 import { registerLabRoutes } from "./routes/lab";
@@ -16,35 +16,54 @@ import { registerMessageRoutes } from "./routes/messages";
 import { registerReviewRoutes } from "./routes/reviews";
 import { registerWebhookRoutes } from "./routes/webhooks";
 
-export type BuildServerOptions = { lab?: LabRouteDependencies };
+type LogStream = { write(line: string): void };
+type RateLimitOptions = Partial<{
+  maxKeys: number;
+  now(): number;
+  scenarioLimit: number;
+  sessionAddressLimit: number;
+}>;
+
+export type BuildServerOptions = {
+  lab?: LabRouteDependencies;
+  logStream?: LogStream;
+  rateLimit?: RateLimitOptions;
+};
 
 const rateWindowMs = 5 * 60 * 1_000;
-const sessionAddressLimit = 20;
-const scenarioLimit = 20;
-const maxRateKeys = 10_000;
-const sessionAddressRequests = new Map<string, number[]>();
-const scenarioAddressRequests = new Map<string, number[]>();
-const scenarioTokenRequests = new Map<string, number[]>();
+const defaultSessionAddressLimit = 20;
+const defaultScenarioLimit = 20;
+const defaultMaxRateKeys = 10_000;
 
 function resolvedClientAddress(request: FastifyRequest): string {
-  return request.ip;
+  const forwardedHeader = request.headers["x-forwarded-for"];
+  const forwardedAddresses = Array.isArray(forwardedHeader)
+    ? forwardedHeader.join(",")
+    : forwardedHeader;
+  const immediateProxyAddress = forwardedAddresses?.split(",").at(-1)?.trim();
+
+  return immediateProxyAddress || request.socket.remoteAddress || "unknown";
 }
 
 function requestPathname(request: FastifyRequest): string {
   return new URL(request.url, "http://localhost").pathname;
 }
 
-function scenarioRateLimitKey(request: FastifyRequest): string {
+function scenarioRateLimitKey(
+  request: FastifyRequest,
+  clientAddress: string,
+): string {
   const tokenHash = createHash("sha256")
     .update(request.headers.authorization ?? "")
     .digest("hex");
 
-  return `${resolvedClientAddress(request)}:${tokenHash}`;
+  return `${clientAddress}:${tokenHash}`;
 }
 
 function pruneRateKeys(
   requestsByKey: Map<string, number[]>,
   now: number,
+  maxKeys: number,
 ): void {
   for (const [key, requests] of requestsByKey) {
     const activeRequests = requests.filter(
@@ -59,14 +78,24 @@ function pruneRateKeys(
     requestsByKey.set(key, activeRequests);
   }
 
-  while (requestsByKey.size >= maxRateKeys) {
-    const oldestKey = requestsByKey.keys().next().value;
+  while (requestsByKey.size >= maxKeys) {
+    let earliestExpiryKey: string | undefined;
+    let earliestExpiry = Number.POSITIVE_INFINITY;
 
-    if (!oldestKey) {
+    for (const [key, requests] of requestsByKey) {
+      const fullExpiry = requests.at(-1)! + rateWindowMs;
+
+      if (fullExpiry < earliestExpiry) {
+        earliestExpiry = fullExpiry;
+        earliestExpiryKey = key;
+      }
+    }
+
+    if (!earliestExpiryKey) {
       return;
     }
 
-    requestsByKey.delete(oldestKey);
+    requestsByKey.delete(earliestExpiryKey);
   }
 }
 
@@ -75,10 +104,11 @@ function enforceRateLimit(
   requestsByKey: Map<string, number[]>,
   key: string,
   limit: number,
+  maxKeys: number,
+  now: number,
 ): boolean {
-  const now = Date.now();
   if (!requestsByKey.has(key)) {
-    pruneRateKeys(requestsByKey, now);
+    pruneRateKeys(requestsByKey, now, maxKeys);
   }
   const requests = (requestsByKey.get(key) ?? []).filter(
     (requestedAt) => requestedAt > now - rateWindowMs,
@@ -100,9 +130,33 @@ function enforceRateLimit(
 }
 
 export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
+  const rateLimitOptions = options.rateLimit ?? {};
+  const maxKeys = rateLimitOptions.maxKeys ?? defaultMaxRateKeys;
+  const now = rateLimitOptions.now ?? Date.now;
+  const scenarioLimit = rateLimitOptions.scenarioLimit ?? defaultScenarioLimit;
+  const sessionAddressLimit =
+    rateLimitOptions.sessionAddressLimit ?? defaultSessionAddressLimit;
+  const sessionAddressRequests = new Map<string, number[]>();
+  const scenarioAddressRequests = new Map<string, number[]>();
+  const scenarioTokenRequests = new Map<string, number[]>();
+  const logger =
+    process.env.NODE_ENV === "production"
+      ? {
+          level: "info",
+          redact: {
+            censor: "[Redacted]",
+            paths: [
+              "req.headers.authorization",
+              "req.headers.cookie",
+              "res.headers.set-cookie",
+            ],
+          },
+          ...(options.logStream ? { stream: options.logStream } : {}),
+        }
+      : false;
   const server = Fastify({
     bodyLimit: MAX_WEBHOOK_BYTES,
-    logger: false,
+    logger,
     trustProxy: true,
   });
 
@@ -122,19 +176,29 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
       done(null, new Uint8Array(body));
     },
   );
-  server.setErrorHandler((error, _request, reply) => sendError(reply, error));
+  server.setErrorHandler((error, request, reply) => {
+    if (!(error instanceof HttpError)) {
+      request.log.error({ err: error }, "Unexpected request error");
+    }
+
+    return sendError(reply, error);
+  });
   server.get("/health", async () => ({ status: "ok" }));
   server.addHook("onRequest", (request, reply, done) => {
     if (request.method === "POST") {
       const pathname = requestPathname(request);
+      const clientAddress = resolvedClientAddress(request);
+      const requestedAt = now();
 
       if (
         pathname === "/api/lab/sessions" &&
         enforceRateLimit(
           reply,
           sessionAddressRequests,
-          resolvedClientAddress(request),
+          clientAddress,
           sessionAddressLimit,
+          maxKeys,
+          requestedAt,
         )
       ) {
         return;
@@ -145,14 +209,18 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
           enforceRateLimit(
             reply,
             scenarioTokenRequests,
-            scenarioRateLimitKey(request),
+            scenarioRateLimitKey(request, clientAddress),
             scenarioLimit,
+            maxKeys,
+            requestedAt,
           ) ||
           enforceRateLimit(
             reply,
             scenarioAddressRequests,
-            resolvedClientAddress(request),
+            clientAddress,
             scenarioLimit,
+            maxKeys,
+            requestedAt,
           )
         ) {
           return;

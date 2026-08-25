@@ -13,12 +13,9 @@ import {
   BoxGridSnapshotSchema,
   encoreTixAdapter,
   venueWaveAdapter,
-} from "../../../../packages/providers/src/index";
-import {
-  sql,
-  type TransactionSql,
-} from "../../../../packages/database/src/client";
-import { markMessageFailed } from "../../../../packages/database/src/ingestion";
+} from "@prism/providers";
+import { sql, type Scope, type TransactionSql } from "@prism/database";
+import { markMessageFailed } from "@prism/database/ingestion";
 
 const processingAttempts = 5;
 
@@ -48,7 +45,7 @@ export type ProcessMessageResult =
 
 export type ProcessMessageJob = {
   attemptsMade: number;
-  data: { messageId: string };
+  data: { messageId: string; organizationId: string; scopeId: string };
 };
 
 function adapterFor(provider: Provider): ProviderAdapter {
@@ -297,6 +294,7 @@ async function applyReplacementOperation(
 
 export async function processMessage(
   messageId: string,
+  scope: Scope,
 ): Promise<ProcessMessageResult> {
   return sql.begin(async (transaction) => {
     const messages = await transaction<StoredMessage[]>`
@@ -317,6 +315,8 @@ export async function processMessage(
         state
       FROM ingestion_messages
       WHERE id = ${messageId}
+        AND scope_id = ${scope.scopeId}
+        AND organization_id = ${scope.organizationId}
       FOR UPDATE
     `;
     const message = messages[0];
@@ -430,14 +430,25 @@ export async function processQueueJob(
   job: ProcessMessageJob,
   processor: (
     messageId: string,
+    scope: Scope,
   ) => Promise<ProcessMessageResult> = processMessage,
 ): Promise<ProcessMessageResult> {
+  const scope = {
+    organizationId: job.data.organizationId,
+    scopeId: job.data.scopeId,
+  };
+
   try {
-    return await processor(job.data.messageId);
+    return await processor(job.data.messageId, scope);
   } catch (error) {
     if (job.attemptsMade + 1 === processingAttempts) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      await markMessageFailed(job.data.messageId, message, processingAttempts);
+      await markMessageFailed(
+        job.data.messageId,
+        message,
+        processingAttempts,
+        scope,
+      );
     }
 
     throw error;

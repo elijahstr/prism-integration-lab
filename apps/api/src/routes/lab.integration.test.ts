@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
 
-import { migrate } from "../../../../packages/database/scripts/migrate";
-import { seed } from "../../../../packages/database/scripts/seed";
-import { sql } from "../../../../packages/database/src/client";
-import { expireLabSessions } from "../../../../packages/database/src/lab";
+import { sql } from "@prism/database";
+import { expireLabSessions } from "@prism/database/lab";
+import { migrate } from "@prism/database/migrate";
+import { seed } from "@prism/database/seed";
 import { buildServer } from "../server";
 import type { ScenarioClock } from "./lab";
 
@@ -16,12 +16,16 @@ let nextSessionAddress = 1;
 function sessionHeaders(): Record<string, string> {
   const address = `198.51.102.${nextSessionAddress}`;
   nextSessionAddress += 1;
-  return { "x-forwarded-for": `${address}, 10.0.0.1` };
+  return { "x-forwarded-for": `203.0.113.1, ${address}` };
 }
 
 class TestScenarioClock implements ScenarioClock {
   elapsedMs = 0;
   waits: number[] = [];
+
+  now(): Date {
+    return new Date("2026-08-25T09:30:00.000Z");
+  }
 
   async sleep(milliseconds: number): Promise<void> {
     this.elapsedMs += milliseconds;
@@ -113,7 +117,7 @@ describe("integration lab", () => {
 
   test("limits repeated lab sessions from one resolved address", async () => {
     const server = buildServer();
-    const headers = { "x-forwarded-for": "198.51.100.31, 10.0.0.1" };
+    const headers = { "x-forwarded-for": "203.0.113.1, 198.51.100.31" };
 
     for (let count = 0; count < 20; count += 1) {
       await createSession(server, "northstar-presents", headers);
@@ -133,7 +137,7 @@ describe("integration lab", () => {
 
   test("limits all session query variants in one address bucket", async () => {
     const server = buildServer();
-    const headers = { "x-forwarded-for": "198.51.100.32, 10.0.0.1" };
+    const headers = { "x-forwarded-for": "203.0.113.1, 198.51.100.32" };
     const sessionPaths = [
       "/api/lab/sessions?retry=1",
       "/api/lab/sessions?retry=1&retry=2",
@@ -156,7 +160,7 @@ describe("integration lab", () => {
       url: "/api/lab/sessions?retry=1&retry=2&note=%F0%9F%8E%9F",
     });
     const otherPathHeaders = {
-      "x-forwarded-for": "198.51.100.33, 10.0.0.1",
+      "x-forwarded-for": "203.0.113.1, 198.51.100.33",
     };
 
     for (let count = 0; count < 20; count += 1) {
@@ -184,12 +188,14 @@ describe("integration lab", () => {
 
   test("keeps a scenario limit when each request has a new lab token", async () => {
     const server = buildServer();
-    const scenarioHeaders = { "x-forwarded-for": "198.51.100.42, 10.0.0.1" };
+    const scenarioHeaders = {
+      "x-forwarded-for": "203.0.113.1, 198.51.100.42",
+    };
     const tokens: string[] = [];
 
     for (let count = 0; count < 20; count += 1) {
       const session = await createSession(server, "northstar-presents", {
-        "x-forwarded-for": `198.51.101.${count + 1}, 10.0.0.1`,
+        "x-forwarded-for": `203.0.113.1, 198.51.101.${count + 1}`,
       });
       tokens.push(session.token);
       const response = await server.inject({
@@ -202,7 +208,7 @@ describe("integration lab", () => {
     }
 
     const replacement = await createSession(server, "northstar-presents", {
-      "x-forwarded-for": "198.51.101.250, 10.0.0.1",
+      "x-forwarded-for": "203.0.113.1, 198.51.101.250",
     });
     const limited = await server.inject({
       headers: {
@@ -215,7 +221,7 @@ describe("integration lab", () => {
     const independent = await server.inject({
       headers: {
         authorization: `Lab ${tokens[0]!}`,
-        "x-forwarded-for": "198.51.100.43, 10.0.0.1",
+        "x-forwarded-for": "203.0.113.1, 198.51.100.43",
       },
       method: "POST",
       url: "/api/lab/scenarios/not-a-scenario/run",
@@ -396,6 +402,32 @@ describe("integration lab", () => {
         backoffMs: "1000",
         error: "temporary provider failure",
       }),
+    );
+    await server.close();
+  });
+
+  test("uses the injected current time for live scenario envelopes", async () => {
+    const clock = new TestScenarioClock();
+    const server = buildServer({
+      lab: { createScenarioClock: () => clock },
+    });
+    const session = await createSession(server);
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/lab/scenarios/duplicate_webhook/run",
+      headers: { authorization: `Lab ${session.token}` },
+    });
+    const messages = Array.from(
+      await sql<{ receivedAt: Date }[]>`
+        SELECT received_at AS "receivedAt"
+        FROM ingestion_messages
+        WHERE scope_id = ${session.scopeId}
+      `,
+    );
+
+    expect(response.statusCode).toBe(201);
+    expect(messages.map((message) => message.receivedAt.toISOString())).toEqual(
+      ["2026-08-25T09:30:00.000Z"],
     );
     await server.close();
   });

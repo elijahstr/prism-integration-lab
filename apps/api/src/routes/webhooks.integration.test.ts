@@ -3,12 +3,9 @@ import { createHash, createHmac } from "node:crypto";
 
 import type { ProviderEnvelope } from "@prism/contracts";
 
-import { migrate } from "../../../../packages/database/scripts/migrate";
-import { seed } from "../../../../packages/database/scripts/seed";
-import {
-  deriveWebhookSecret,
-  sql,
-} from "../../../../packages/database/src/client";
+import { migrate } from "@prism/database/migrate";
+import { seed } from "@prism/database/seed";
+import { deriveWebhookSecret, sql } from "@prism/database";
 import { buildServer } from "../server";
 
 process.env.PROVIDER_KEY_MASTER_SECRET = "test-provider-master-secret";

@@ -14,5 +14,5 @@ export function sendError(reply: FastifyReply, error: unknown): FastifyReply {
     return reply.status(error.statusCode).send({ error: error.message });
   }
 
-  return reply.status(400).send({ error: "Invalid request" });
+  return reply.status(500).send({ error: "Internal server error" });
 }

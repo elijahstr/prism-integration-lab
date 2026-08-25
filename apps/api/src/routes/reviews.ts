@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { FastifyInstance } from "fastify";
 
-import { sql } from "../../../../packages/database/src/client";
+import { sql } from "@prism/database";
 
 import { HttpError } from "../http/errors";
 import { resolveLabScope } from "../http/lab-scope";

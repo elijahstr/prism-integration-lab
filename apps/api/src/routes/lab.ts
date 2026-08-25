@@ -11,15 +11,14 @@ import {
   resetScenarioRun,
   saveScenarioTrace,
   startScenarioRun,
-} from "../../../../packages/database/src/lab";
-import { sql } from "../../../../packages/database/src/client";
-import { acceptMessage } from "../../../../packages/database/src/ingestion";
-import type { Scope } from "../../../../packages/database/src/scope";
+} from "@prism/database/lab";
+import { sql, type Scope } from "@prism/database";
+import { acceptMessage } from "@prism/database/ingestion";
 import {
   scenarioFixtures,
   type ScenarioFixture,
-} from "../../../../packages/providers/src/fixtures/scenarios";
-import { VenueWaveSequenceClient } from "../../../../packages/providers/src/venuewave/simulator";
+  VenueWaveSequenceClient,
+} from "@prism/providers";
 import { processMessage } from "../../../worker/src/jobs/process-message";
 import { pollVenueWave } from "../../../worker/src/jobs/poll-venuewave";
 
@@ -45,12 +44,17 @@ export type ScenarioObservation = {
 export type ScenarioClock = {
   elapsedMs: number;
   waits: readonly number[];
+  now(): Date;
   sleep(milliseconds: number): Promise<void>;
 };
 
 export class VirtualScenarioClock implements ScenarioClock {
   elapsedMs = 0;
   waits: number[] = [];
+
+  now(): Date {
+    return new Date();
+  }
 
   async sleep(milliseconds: number): Promise<void> {
     if (!Number.isInteger(milliseconds) || milliseconds < 0) {
@@ -91,6 +95,10 @@ function labBody(body: unknown): SessionBody {
   }
 
   throw new HttpError(400, "The lab session body is invalid");
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled scenario: ${String(value)}`);
 }
 
 function traceFor(
@@ -168,12 +176,13 @@ function envelope(
     | "provider"
     | "sourceVersion"
   >,
+  clock: ScenarioClock,
 ): ProviderEnvelope {
   return {
     ...values,
     checksum: `sha256:${values.deliveryId}`,
     organizationId: scope.organizationId,
-    receivedAt: "2026-08-24T12:00:00.000Z",
+    receivedAt: clock.now().toISOString(),
     scopeId: scope.scopeId,
     sourceOccurredAt: "2026-08-24T12:00:00.000Z",
   };
@@ -182,11 +191,12 @@ function envelope(
 async function acceptAndProcess(
   scope: Scope,
   values: Parameters<typeof envelope>[1],
+  clock: ScenarioClock,
 ): Promise<string> {
-  const accepted = await acceptMessage(scope, envelope(scope, values));
+  const accepted = await acceptMessage(scope, envelope(scope, values, clock));
 
   if (accepted.status === "accepted") {
-    await processMessage(accepted.messageId);
+    await processMessage(accepted.messageId, scope);
   }
 
   return accepted.messageId;
@@ -278,34 +288,42 @@ async function runScenarioWork(
       provider: "encoretix" as const,
       sourceVersion: "2026-08-24T12:00:00.000Z",
     };
-    await acceptAndProcess(scope, values);
-    await acceptMessage(scope, envelope(scope, values));
+    await acceptAndProcess(scope, values, clock);
+    await acceptMessage(scope, envelope(scope, values, clock));
     return undefined;
   }
 
   if (scenario === "late_update") {
-    await acceptAndProcess(scope, {
-      connectionId: resources.encoreTixConnectionId,
-      deliveryId: deliveryId("encore-newer-sale"),
-      externalEventId: resources.eventId,
-      kind: "sale_delta",
-      payload: {
-        effects: [{ amountDeltaCents: 2500, kind: "sale", ticketDelta: 1 }],
+    await acceptAndProcess(
+      scope,
+      {
+        connectionId: resources.encoreTixConnectionId,
+        deliveryId: deliveryId("encore-newer-sale"),
+        externalEventId: resources.eventId,
+        kind: "sale_delta",
+        payload: {
+          effects: [{ amountDeltaCents: 2500, kind: "sale", ticketDelta: 1 }],
+        },
+        provider: "encoretix",
+        sourceVersion: "2026-08-24T12:01:00.000Z",
       },
-      provider: "encoretix",
-      sourceVersion: "2026-08-24T12:01:00.000Z",
-    });
-    await acceptAndProcess(scope, {
-      connectionId: resources.encoreTixConnectionId,
-      deliveryId: deliveryId("encore-late-sale"),
-      externalEventId: resources.eventId,
-      kind: "sale_delta",
-      payload: {
-        effects: [{ amountDeltaCents: 5000, kind: "sale", ticketDelta: 2 }],
+      clock,
+    );
+    await acceptAndProcess(
+      scope,
+      {
+        connectionId: resources.encoreTixConnectionId,
+        deliveryId: deliveryId("encore-late-sale"),
+        externalEventId: resources.eventId,
+        kind: "sale_delta",
+        payload: {
+          effects: [{ amountDeltaCents: 5000, kind: "sale", ticketDelta: 2 }],
+        },
+        provider: "encoretix",
+        sourceVersion: "2026-08-24T11:59:00.000Z",
       },
-      provider: "encoretix",
-      sourceVersion: "2026-08-24T11:59:00.000Z",
-    });
+      clock,
+    );
     return undefined;
   }
 
@@ -383,7 +401,7 @@ async function runScenarioWork(
         AND provider = 'venuewave'
         AND delivery_id = ${outageDeliveryId}
     `;
-    await processMessage(messages[0]!.id);
+    await processMessage(messages[0]!.id, scope);
     const cursorAfter = await venueWaveCursor(scope);
     await addAudit(scope, "venuewave_recovered", {
       attempts: 2,
@@ -464,18 +482,22 @@ async function runScenarioWork(
   }
 
   if (scenario === "uncertain_event_match") {
-    const messageId = await acceptAndProcess(scope, {
-      connectionId: resources.venueWaveConnectionId,
-      deliveryId: deliveryId("venuewave-uncertain-match"),
-      externalEventId: "event-similar-unconfirmed",
-      kind: "sale_delta",
-      payload: {
-        effects: [{ amountDeltaCents: 7500, kind: "sale", ticketDelta: 3 }],
-        nextCursor: "cursor-uncertain-match",
+    const messageId = await acceptAndProcess(
+      scope,
+      {
+        connectionId: resources.venueWaveConnectionId,
+        deliveryId: deliveryId("venuewave-uncertain-match"),
+        externalEventId: "event-similar-unconfirmed",
+        kind: "sale_delta",
+        payload: {
+          effects: [{ amountDeltaCents: 7500, kind: "sale", ticketDelta: 3 }],
+          nextCursor: "cursor-uncertain-match",
+        },
+        provider: "venuewave",
+        sourceVersion: "cursor-uncertain-match",
       },
-      provider: "venuewave",
-      sourceVersion: "cursor-uncertain-match",
-    });
+      clock,
+    );
     await sql`
       INSERT INTO review_items (id, scope_id, organization_id, message_id, kind)
       VALUES (
@@ -487,19 +509,23 @@ async function runScenarioWork(
   }
 
   if (scenario === "incomplete_snapshot") {
-    const messageId = await acceptAndProcess(scope, {
-      connectionId: resources.boxgridConnectionId,
-      deliveryId: deliveryId("boxgrid-incomplete-snapshot"),
-      externalEventId: resources.eventId,
-      kind: "snapshot",
-      payload: {
-        complete: false,
-        facts: { grossSalesCents: 60000, inventory: 40, sold: 600 },
-        sequence: "1",
+    const messageId = await acceptAndProcess(
+      scope,
+      {
+        connectionId: resources.boxgridConnectionId,
+        deliveryId: deliveryId("boxgrid-incomplete-snapshot"),
+        externalEventId: resources.eventId,
+        kind: "snapshot",
+        payload: {
+          complete: false,
+          facts: { grossSalesCents: 60000, inventory: 40, sold: 600 },
+          sequence: "1",
+        },
+        provider: "boxgrid",
+        sourceVersion: "1",
       },
-      provider: "boxgrid",
-      sourceVersion: "1",
-    });
+      clock,
+    );
     await sql`
       INSERT INTO review_items (id, scope_id, organization_id, message_id, kind)
       VALUES (
@@ -508,6 +534,10 @@ async function runScenarioWork(
       )
     `;
     return undefined;
+  }
+
+  if (scenario !== "provider_change") {
+    return assertNever(scenario);
   }
 
   await sql.begin(async (transaction) => {
@@ -527,30 +557,40 @@ async function runScenarioWork(
         state = 'confirmed'
     `;
   });
-  await acceptAndProcess(scope, {
-    connectionId: resources.encoreTixConnectionId,
-    deliveryId: deliveryId("encore-provider-change-400"),
-    externalEventId: resources.eventId,
-    kind: "sale_delta",
-    payload: {
-      effects: [{ amountDeltaCents: 1000000, kind: "sale", ticketDelta: 400 }],
+  await acceptAndProcess(
+    scope,
+    {
+      connectionId: resources.encoreTixConnectionId,
+      deliveryId: deliveryId("encore-provider-change-400"),
+      externalEventId: resources.eventId,
+      kind: "sale_delta",
+      payload: {
+        effects: [
+          { amountDeltaCents: 1000000, kind: "sale", ticketDelta: 400 },
+        ],
+      },
+      provider: "encoretix",
+      sourceVersion: "2026-08-24T12:00:00.000Z",
     },
-    provider: "encoretix",
-    sourceVersion: "2026-08-24T12:00:00.000Z",
-  });
-  await acceptAndProcess(scope, {
-    connectionId: resources.boxgridConnectionId,
-    deliveryId: deliveryId("boxgrid-provider-change-600"),
-    externalEventId: resources.eventId,
-    kind: "snapshot",
-    payload: {
-      complete: true,
-      facts: { grossSalesCents: 1500000, inventory: 0, sold: 600 },
-      sequence: "2",
+    clock,
+  );
+  await acceptAndProcess(
+    scope,
+    {
+      connectionId: resources.boxgridConnectionId,
+      deliveryId: deliveryId("boxgrid-provider-change-600"),
+      externalEventId: resources.eventId,
+      kind: "snapshot",
+      payload: {
+        complete: true,
+        facts: { grossSalesCents: 1500000, inventory: 0, sold: 600 },
+        sequence: "2",
+      },
+      provider: "boxgrid",
+      sourceVersion: "2",
     },
-    provider: "boxgrid",
-    sourceVersion: "2",
-  });
+    clock,
+  );
   await sql.begin(async (transaction) => {
     const reconciliationId = `reconciliation-lab-${randomUUID()}`;
     await transaction`

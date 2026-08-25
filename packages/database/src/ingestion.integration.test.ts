@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 
 import type { ProviderEnvelope } from "@prism/contracts";
 
+import { sql } from "./client";
 import { claimOutbox, markOutboxDispatched, acceptMessage } from "./ingestion";
 import { migrate } from "../scripts/migrate";
 import { seed } from "../scripts/seed";
@@ -65,5 +66,31 @@ describe("ingestion outbox", () => {
     expect(
       (await claimOutbox(100)).map((candidate) => candidate.id),
     ).not.toContain(row!.id);
+  });
+
+  test("keeps one pending checksum review for repeated conflicts", async () => {
+    const deliveryId = `repeated-conflict-${crypto.randomUUID()}`;
+    const accepted = await acceptMessage(scope, envelopeFor(deliveryId));
+
+    await acceptMessage(scope, {
+      ...envelopeFor(deliveryId),
+      checksum: "sha256:first-conflict",
+    });
+    await acceptMessage(scope, {
+      ...envelopeFor(deliveryId),
+      checksum: "sha256:second-conflict",
+    });
+
+    expect(
+      Array.from(
+        await sql<{ count: string }[]>`
+          SELECT count(*)::text AS count
+          FROM review_items
+          WHERE message_id = ${accepted.messageId}
+            AND kind = 'checksum_conflict'
+            AND state = 'pending'
+        `,
+      ),
+    ).toEqual([{ count: "1" }]);
   });
 });

@@ -1,17 +1,21 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import type { ProviderEnvelope } from "../../../../packages/contracts/src/provider-envelope";
-import { acceptMessage } from "../../../../packages/database/src/ingestion";
-import { sql } from "../../../../packages/database/src/client";
-import type { Scope } from "../../../../packages/database/src/scope";
-import { migrate } from "../../../../packages/database/scripts/migrate";
-import { seed } from "../../../../packages/database/scripts/seed";
+import { sql, type Scope } from "@prism/database";
+import { acceptMessage } from "@prism/database/ingestion";
+import { migrate } from "@prism/database/migrate";
+import { seed } from "@prism/database/seed";
 
 import { processMessage, processQueueJob } from "./process-message";
 
 const scope: Scope = {
   organizationId: "organization-northstar",
   scopeId: "scope-northstar-baseline",
+};
+
+const otherScope: Scope = {
+  organizationId: "organization-harborlight",
+  scopeId: "scope-harborlight-baseline",
 };
 
 function encoreEnvelopeFor(deliveryId: string): ProviderEnvelope {
@@ -146,6 +150,47 @@ afterAll(async () => {
 });
 
 describe("message processing", () => {
+  test("rejects a message identifier outside the supplied internal scope", async () => {
+    const accepted = await acceptMessage(
+      scope,
+      encoreEnvelopeFor(`wrong-processing-scope-${crypto.randomUUID()}`),
+    );
+
+    await expect(
+      processMessage(accepted.messageId, otherScope),
+    ).rejects.toThrow("Ingestion message does not exist");
+  });
+
+  test("does not fail a message outside the queued internal scope", async () => {
+    const accepted = await acceptMessage(
+      scope,
+      encoreEnvelopeFor(`wrong-failure-scope-${crypto.randomUUID()}`),
+    );
+
+    await expect(
+      processQueueJob(
+        {
+          attemptsMade: 4,
+          data: {
+            messageId: accepted.messageId,
+            organizationId: otherScope.organizationId,
+            scopeId: otherScope.scopeId,
+          },
+        },
+        async () => {
+          throw new Error("database unavailable");
+        },
+      ),
+    ).rejects.toThrow("Ingestion message does not exist");
+    expect(
+      Array.from(
+        await sql<{ state: string }[]>`
+          SELECT state FROM ingestion_messages WHERE id = ${accepted.messageId}
+        `,
+      ),
+    ).toEqual([{ state: "received" }]);
+  });
+
   test("keeps the conflicting payload out when conflict locks the delivery first", async () => {
     const deliveryId = `conflict-first-${crypto.randomUUID()}`;
     const accepted = await acceptMessage(scope, encoreEnvelopeFor(deliveryId));
@@ -171,7 +216,7 @@ describe("message processing", () => {
 
     const conflictResult = acceptMessage(scope, conflict);
     await Bun.sleep(25);
-    const processingResult = processMessage(accepted.messageId);
+    const processingResult = processMessage(accepted.messageId, scope);
 
     await Promise.all([conflictResult, processingResult]);
 
@@ -219,7 +264,7 @@ describe("message processing", () => {
       },
     };
 
-    const processingResult = processMessage(accepted.messageId);
+    const processingResult = processMessage(accepted.messageId, scope);
     await Bun.sleep(25);
     const conflictResult = acceptMessage(scope, conflict);
 
@@ -285,7 +330,7 @@ describe("message processing", () => {
       sourceVersion: "4",
     });
 
-    await expect(processMessage(accepted.messageId)).resolves.toBe(
+    await expect(processMessage(accepted.messageId, scope)).resolves.toBe(
       "needs_review",
     );
     expect(
@@ -322,7 +367,9 @@ describe("message processing", () => {
       sourceVersion: "5",
     });
 
-    await expect(processMessage(accepted.messageId)).resolves.toBe("applied");
+    await expect(processMessage(accepted.messageId, scope)).resolves.toBe(
+      "applied",
+    );
     expect(
       Array.from(
         await sql<{ complete: boolean; sold: number; versionRank: string }[]>`
@@ -354,13 +401,27 @@ describe("message processing", () => {
 
     await expect(
       processQueueJob(
-        { attemptsMade: 0, data: { messageId: "transient-message" } },
+        {
+          attemptsMade: 0,
+          data: {
+            messageId: "transient-message",
+            organizationId: scope.organizationId,
+            scopeId: scope.scopeId,
+          },
+        },
         processor,
       ),
     ).rejects.toThrow("temporary database error");
     await expect(
       processQueueJob(
-        { attemptsMade: 1, data: { messageId: "transient-message" } },
+        {
+          attemptsMade: 1,
+          data: {
+            messageId: "transient-message",
+            organizationId: scope.organizationId,
+            scopeId: scope.scopeId,
+          },
+        },
         processor,
       ),
     ).resolves.toBe("applied");
@@ -376,7 +437,14 @@ describe("message processing", () => {
 
     await expect(
       processQueueJob(
-        { attemptsMade: 4, data: { messageId: accepted.messageId } },
+        {
+          attemptsMade: 4,
+          data: {
+            messageId: accepted.messageId,
+            organizationId: scope.organizationId,
+            scopeId: scope.scopeId,
+          },
+        },
         async () => {
           throw new Error("database unavailable");
         },
@@ -426,8 +494,8 @@ describe("message processing", () => {
     `;
 
     await Promise.all([
-      processMessage(accepted.messageId),
-      processMessage(accepted.messageId),
+      processMessage(accepted.messageId, scope),
+      processMessage(accepted.messageId, scope),
     ]);
 
     const effects = await sql<[{ count: string }]>`
@@ -476,8 +544,8 @@ describe("message processing", () => {
       );
 
       await Promise.all([
-        processMessage(first.messageId),
-        processMessage(second.messageId),
+        processMessage(first.messageId, scope),
+        processMessage(second.messageId, scope),
       ]);
 
       const facts = await sql<[{ versionRank: string; soldTickets: number }]>`
