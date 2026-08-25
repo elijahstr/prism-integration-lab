@@ -60,7 +60,7 @@ export function createWorkerRuntime(
       worker = dependencies.createWorker();
       dispatchTimer = setInterval(() => {
         void dispatchPendingOutbox();
-      }, 1_000);
+      }, 15_000);
       void dispatchPendingOutbox();
     },
     async stop() {
@@ -92,6 +92,7 @@ const runtime = createWorkerRuntime({
   createWorker: () =>
     new Worker("ingestion", (job) => processQueueJob(job), {
       connection: bullMqConnection,
+      drainDelay: 30,
     }),
   dispatch: async () => {
     await dispatchOutboxBatch(ingestionQueue);

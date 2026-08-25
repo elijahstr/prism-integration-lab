@@ -292,7 +292,8 @@ describe("message processing", () => {
       Array.from(
         await sql<{ facts: string; staged: string; action: string }[]>`
           SELECT
-            (SELECT count(*)::text FROM ticket_facts WHERE provider = 'boxgrid') AS facts,
+            (SELECT count(*)::text FROM ticket_facts
+              WHERE scope_id = ${scope.scopeId} AND provider = 'boxgrid') AS facts,
             (SELECT count(*)::text FROM snapshot_staging WHERE message_id = ${accepted.messageId}) AS staged,
             (SELECT action FROM audit_entries WHERE message_id = ${accepted.messageId} ORDER BY created_at DESC LIMIT 1) AS action
         `,

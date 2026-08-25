@@ -7,13 +7,15 @@
     "packages/*"
   ],
   "scripts": {
+    "build": "bun run --cwd apps/web build",
     "db:migrate": "bun packages/database/scripts/migrate.ts",
     "db:seed": "bun packages/database/scripts/seed.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "bun test",
-    "typecheck": "tsc --noEmit -p packages/contracts && tsc --noEmit -p packages/database && tsc --noEmit -p apps/worker",
-    "verify": "bun run format:check && bun run typecheck && bun test"
+    "test": "bun test --path-ignore-patterns='**/tests/e2e/**'",
+    "test:e2e": "playwright test",
+    "typecheck": "bun run --cwd apps/api typecheck && bun run --cwd apps/web typecheck && tsc --noEmit -p packages/contracts && tsc --noEmit -p packages/database && tsc --noEmit -p apps/worker",
+    "verify": "bun run format:check && bun run typecheck && bun run test && bun run build && bun run test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
