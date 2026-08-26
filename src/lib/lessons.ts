@@ -10,7 +10,6 @@ export const LESSON_IDS = [
 
 export type LessonId = (typeof LESSON_IDS)[number];
 
-type Node = { label: string; detail: string; accent?: boolean };
 type Approach = {
   name: string;
   fit: string;
@@ -27,11 +26,7 @@ export type Lesson = {
   title: string;
   intro: string;
   context: string;
-  diagram: {
-    caption: string;
-    nodes: readonly Node[];
-    arrows: readonly string[];
-  };
+  diagramCaption: string | null;
   approaches?: readonly Approach[];
   example?: {
     title: string;
@@ -51,26 +46,7 @@ export const LESSONS: readonly Lesson[] = [
       "Come and Take It Live is an Austin music venue. Come and Take It Productions promotes and produces shows. Prism must support both workflows without mixing venue operations, promoter deals, or settlement facts.",
     context:
       "This portfolio prototype explores architecture problems that can appear when Prism connects those workflows to different ticket providers. The providers and transport examples are hypothetical.",
-    diagram: {
-      caption:
-        "The same show can create different responsibilities for the venue and the promoter.",
-      nodes: [
-        {
-          label: "Come and Take It Live",
-          detail: "Room, calendar, ticket operations, and show-day activity",
-        },
-        {
-          label: "Prism",
-          detail: "Shared event, deal, finance, and settlement model",
-          accent: true,
-        },
-        {
-          label: "Come and Take It Productions",
-          detail: "Offers, co-promotes, expenses, payments, and settlement",
-        },
-      ],
-      arrows: ["venue operations", "promoter workflow"],
-    },
+    diagramCaption: null,
   },
   {
     id: "api-mapping",
@@ -81,24 +57,8 @@ export const LESSONS: readonly Lesson[] = [
       "One provider can call a show an event, another can call it a performance, and a third can split one ticket price into several fields.",
     context:
       "Prism needs one canonical model. A canonical model is the stable internal language that each provider maps into.",
-    diagram: {
-      caption:
-        "Provider adapters translate different shapes before product logic uses them.",
-      nodes: [
-        { label: "Provider A", detail: "event_id · gross · status" },
-        {
-          label: "Provider adapter",
-          detail: "Validate, translate, preserve raw values",
-        },
-        {
-          label: "Prism model",
-          detail: "showId · grossCents · saleStatus",
-          accent: true,
-        },
-        { label: "Venue + promoter", detail: "One consistent view" },
-      ],
-      arrows: ["raw payload", "mapped fact", "shared workflow"],
-    },
+    diagramCaption:
+      "Provider adapters translate different shapes before product logic uses them.",
     approaches: [
       {
         name: "Use provider fields everywhere",
@@ -159,24 +119,8 @@ export const LESSONS: readonly Lesson[] = [
       "A hypothetical provider can retry a webhook when Prism replies slowly. Two deliveries must not create two sales or refunds.",
     context:
       "A webhook is a provider message that arrives when something changes. Delivery is usually at least once, not exactly once.",
-    diagram: {
-      caption:
-        "The receiver accepts repeats, then applies each provider event once.",
-      nodes: [
-        {
-          label: "Ticket provider",
-          detail: "Send sale update · retry after timeout",
-        },
-        {
-          label: "Webhook inbox",
-          detail: "Verify · record · acknowledge",
-          accent: true,
-        },
-        { label: "Deduplication", detail: "Check provider event ID" },
-        { label: "Prism totals", detail: "Apply once" },
-      ],
-      arrows: ["delivery + retry", "durable receipt", "one effect"],
-    },
+    diagramCaption:
+      "The receiver accepts repeats, then applies each provider event once.",
     approaches: [
       {
         name: "Process during the request",
@@ -231,21 +175,8 @@ export const LESSONS: readonly Lesson[] = [
       "A hypothetical provider might require Prism to request current sales. A partial response must not erase valid ticket facts.",
     context:
       "Polling asks a provider for changes. A snapshot describes state at one time. Prism must know its scope before it replaces anything.",
-    diagram: {
-      caption:
-        "A scoped snapshot becomes authoritative only after validation completes.",
-      nodes: [
-        { label: "Prism poll", detail: "Cursor · page · retry budget" },
-        { label: "Provider pages", detail: "Page 1 · Page 2 · Page 3" },
-        {
-          label: "Snapshot staging",
-          detail: "Validate scope and completeness",
-          accent: true,
-        },
-        { label: "Current sales", detail: "Replace only the covered scope" },
-      ],
-      arrows: ["request", "stage all pages", "atomic publish"],
-    },
+    diagramCaption:
+      "A scoped snapshot becomes authoritative only after validation completes.",
     approaches: [
       {
         name: "Replace after every page",
@@ -297,21 +228,8 @@ export const LESSONS: readonly Lesson[] = [
       "The venue can confirm a show while the promoter still has an older hold open. Arrival order does not prove business order.",
     context:
       "Prism needs a version rule and an explicit conflict path when two systems change the same business fact.",
-    diagram: {
-      caption:
-        "Version checks protect the confirmed record and route uncertain conflicts for review.",
-      nodes: [
-        { label: "Venue update", detail: "Confirmed · version 8" },
-        { label: "Promoter update", detail: "Hold · based on version 7" },
-        {
-          label: "Conflict rule",
-          detail: "Compare version and allowed transition",
-          accent: true,
-        },
-        { label: "Show record", detail: "Keep confirmed · flag stale hold" },
-      ],
-      arrows: ["new fact", "stale fact", "safe outcome"],
-    },
+    diagramCaption:
+      "Version checks protect the confirmed record and route uncertain conflicts for review.",
     approaches: [
       {
         name: "Last write wins",
@@ -370,24 +288,8 @@ export const LESSONS: readonly Lesson[] = [
       "Ticket revenue, fees, refunds, venue rental income, bar sales, expenses, and co-promoter splits have different owners and rules.",
     context:
       "Prism should store money as explicit components in integer cents. It should never infer settlement from one provider total.",
-    diagram: {
-      caption:
-        "A financial ledger keeps amount, owner, source, and reason together.",
-      nodes: [
-        { label: "Ticket provider", detail: "Sales · fees · refunds" },
-        { label: "Venue operations", detail: "Rental · bar · house expenses" },
-        {
-          label: "Prism ledger",
-          detail: "Typed entries in integer cents",
-          accent: true,
-        },
-        {
-          label: "Promoter settlement",
-          detail: "Deal terms · splits · balance",
-        },
-      ],
-      arrows: ["source facts", "classified entries", "explainable result"],
-    },
+    diagramCaption:
+      "A financial ledger keeps amount, owner, source, and reason together.",
     approaches: [
       {
         name: "Store one net total",
@@ -446,21 +348,8 @@ export const LESSONS: readonly Lesson[] = [
       "Before a show closes, the venue and promoter need to compare the offer, ticket totals, payments, expenses, and co-promoter splits.",
     context:
       "Reconciliation compares independent records. Recovery resumes failed work without deleting the evidence that explains a difference.",
-    diagram: {
-      caption:
-        "Prism compares source totals, isolates differences, and resumes from checkpoints.",
-      nodes: [
-        { label: "Original deal", detail: "Offer · guarantee · split" },
-        { label: "Actual activity", detail: "Tickets · payments · expenses" },
-        {
-          label: "Reconciliation",
-          detail: "Compare · explain · assign",
-          accent: true,
-        },
-        { label: "Final settlement", detail: "Approved balance + audit trail" },
-      ],
-      arrows: ["expected", "actual", "resolved close"],
-    },
+    diagramCaption:
+      "Prism compares source totals, isolates differences, and resumes from checkpoints.",
     approaches: [
       {
         name: "Manual spreadsheet close",

@@ -10,6 +10,8 @@
   --page: #f7f5fa;
   --green: #13755e;
   --green-soft: #eaf7f1;
+  --red: #b8324b;
+  --red-soft: #fff0f2;
   --amber-soft: #fff7df;
 }
 
@@ -26,6 +28,8 @@
     --page: #f7f5fa;
     --green: #13755e;
     --green-soft: #eaf7f1;
+    --red: #b8324b;
+    --red-soft: #fff0f2;
     --amber-soft: #fff7df;
   }
 }
@@ -206,87 +210,157 @@ main {
   margin-top: 10px;
 }
 
-.diagram {
+.architecture-diagram {
   background: var(--purple-soft);
   border: 1px solid #d8caff;
   border-radius: 18px;
   margin: 0;
-  padding: clamp(24px, 4vw, 52px);
+  padding: clamp(22px, 3vw, 38px);
 }
 
-.diagram figcaption {
+.architecture-diagram figcaption {
   color: var(--purple-dark);
   font-size: 0.82rem;
   font-weight: 600;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
-.diagram-flow {
-  align-items: stretch;
-  display: flex;
-  gap: 0;
+.architecture-viewport {
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-color: #c4b5fd transparent;
+  scrollbar-width: thin;
 }
 
-.diagram-step {
-  align-items: center;
-  display: flex;
-  flex: 1;
-  min-width: 0;
+.architecture-viewport:focus-visible {
+  outline: 3px solid #a78bfa;
+  outline-offset: 5px;
 }
 
-.diagram-step:last-child {
-  flex: 0.76;
+.architecture-viewport svg {
+  display: block;
+  font-family: var(--font-poppins), sans-serif;
+  height: auto;
+  min-width: 760px;
+  width: 100%;
 }
 
-.diagram-node {
-  background: var(--paper);
-  border: 1px solid #d4cde1;
-  border-radius: 12px;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 130px;
-  padding: 20px;
+.architecture-boundary rect {
+  fill: rgba(255, 255, 255, 0.34);
+  stroke: #bba7ed;
+  stroke-dasharray: 7 7;
+  stroke-width: 1.5;
 }
 
-.diagram-node.accent {
-  background: var(--purple);
-  border-color: var(--purple);
-  color: white;
+.architecture-boundary text {
+  fill: #725a91;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.diagram-node strong {
-  font-size: 0.93rem;
-  margin-bottom: 9px;
+.architecture-node rect,
+.architecture-store path,
+.architecture-store ellipse {
+  fill: var(--paper);
+  stroke: #c8bfd4;
+  stroke-width: 1.5;
 }
 
-.diagram-node span {
-  font-size: 0.73rem;
-  line-height: 1.55;
-  opacity: 0.77;
+.architecture-node-purple rect {
+  fill: var(--purple);
+  stroke: var(--purple);
 }
 
-.diagram-arrow {
-  align-items: center;
-  color: var(--purple);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 105px;
-  padding: 0 12px;
-  text-align: center;
+.architecture-node-green rect {
+  fill: var(--green-soft);
+  stroke: #81bbaa;
 }
 
-.diagram-arrow span {
-  color: #6f5d83;
-  font-size: 0.66rem;
-  line-height: 1.35;
+.architecture-node-red rect {
+  fill: var(--red-soft);
+  stroke: #dc8b9a;
 }
 
-.diagram-arrow b {
-  font-size: 1.55rem;
-  font-weight: 400;
+.architecture-decision path {
+  fill: var(--amber-soft);
+  stroke: #d5aa54;
+  stroke-width: 1.5;
+}
+
+.architecture-node-title {
+  fill: var(--ink);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.architecture-node-detail {
+  fill: #6b6074;
+  font-size: 13px;
+}
+
+.architecture-node-purple .architecture-node-title,
+.architecture-node-purple .architecture-node-detail {
+  fill: white;
+}
+
+.architecture-edge path {
+  fill: none;
+  stroke: #6b5c77;
+  stroke-width: 2;
+}
+
+.architecture-edge path.dashed,
+.architecture-lifeline {
+  stroke-dasharray: 7 7;
+}
+
+.architecture-edge-red path {
+  stroke: var(--red);
+}
+
+.architecture-edge-green path {
+  stroke: var(--green);
+}
+
+.architecture-edge-label {
+  fill: #665270;
+  font-size: 12px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--purple-soft);
+  stroke-width: 7px;
+  stroke-linejoin: round;
+}
+
+.marker-default {
+  fill: #6b5c77;
+}
+
+.marker-red {
+  fill: var(--red);
+}
+
+.marker-green {
+  fill: var(--green);
+}
+
+.architecture-store path,
+.architecture-store ellipse {
+  stroke: #8f80a0;
+}
+
+.architecture-decision text {
+  fill: #6b4b0d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.architecture-lifeline {
+  fill: none;
+  stroke: #a99db4;
+  stroke-width: 1.5;
 }
 
 .approaches {
@@ -426,21 +500,6 @@ main {
   margin: 18px 0 28px;
 }
 
-.example button {
-  background: var(--purple);
-  border: 1px solid var(--purple);
-  border-radius: 7px;
-  color: white;
-  cursor: pointer;
-  font-weight: 700;
-  padding: 11px 17px;
-}
-
-.example button:hover {
-  background: var(--purple-dark);
-  border-color: var(--purple-dark);
-}
-
 .trace {
   list-style: none;
   margin: 0;
@@ -450,18 +509,14 @@ main {
 .trace li {
   align-items: center;
   border-bottom: 1px solid var(--line);
-  color: #aaa4af;
+  color: var(--ink);
   display: grid;
   gap: 18px;
   grid-template-columns: 32px 1fr;
   min-height: 63px;
 }
 
-.trace li.visible {
-  color: var(--ink);
-}
-
-.trace li.result.visible {
+.trace li.result {
   color: var(--green);
 }
 
@@ -526,23 +581,6 @@ footer div {
   .approach-wrap:not(:first-child) {
     margin-top: 5px;
   }
-
-  .diagram-flow {
-    display: grid;
-  }
-
-  .diagram-step {
-    display: grid;
-  }
-
-  .diagram-arrow {
-    min-height: 72px;
-    min-width: 0;
-  }
-
-  .diagram-arrow b {
-    transform: rotate(90deg);
-  }
 }
 
 @media (max-width: 700px) {
@@ -574,8 +612,10 @@ footer div {
     font-size: 2.6rem;
   }
 
-  .diagram {
+  .architecture-diagram {
     border-radius: 12px;
+    margin-inline: -8px;
+    padding-inline: 16px;
   }
 
   .example {

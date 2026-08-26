@@ -8,15 +8,16 @@ test("shows the venue and promoter overview", async ({ page }) => {
     "One business group, two operating views",
   );
   await expect(
-    page.getByText("Come and Take It Live", { exact: true }).first(),
+    page.getByText(/Come and Take It Live is an Austin music venue/),
   ).toBeVisible();
   await expect(
-    page.getByText("Come and Take It Productions", { exact: true }).first(),
+    page.getByText(/Come and Take It Productions promotes and produces shows/),
   ).toBeVisible();
   await expect(
     page.getByRole("img", { name: /Come and Take It Live venue logo/ }),
   ).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(7);
+  await expect(page.locator(".architecture-diagram")).toHaveCount(0);
 });
 
 test("opens a lesson from its shareable URL", async ({ page }) => {
@@ -34,23 +35,25 @@ test("opens a lesson from its shareable URL", async ({ page }) => {
 });
 
 for (const lesson of [
-  "api-mapping",
-  "webhooks",
-  "polling-snapshots",
-  "ordering-conflicts",
-  "money-refunds",
-  "reconciliation-recovery",
+  { id: "api-mapping", diagramName: /Provider adapters translate/ },
+  { id: "webhooks", diagramName: /The receiver accepts repeats/ },
+  { id: "polling-snapshots", diagramName: /A scoped snapshot/ },
+  { id: "ordering-conflicts", diagramName: /Version checks protect/ },
+  { id: "money-refunds", diagramName: /A financial ledger keeps/ },
+  {
+    id: "reconciliation-recovery",
+    diagramName: /Prism compares source totals/,
+  },
 ]) {
-  test(`runs the ${lesson} browser-only example`, async ({ page }) => {
-    await page.goto(`/?lesson=${lesson}`);
+  test(`shows the ${lesson.id} diagram and example`, async ({ page }) => {
+    await page.goto(`/?lesson=${lesson.id}`);
 
-    await page.getByRole("button", { name: "Run example" }).click();
-    await page.getByRole("button", { name: "Next step" }).click();
-    await page.getByRole("button", { name: "Next step" }).click();
     await expect(
-      page.getByRole("button", { name: "Reset example" }),
+      page.getByRole("img", { name: lesson.diagramName }),
     ).toBeVisible();
-    await expect(page.locator(".trace .result.visible")).toBeVisible();
+    await expect(page.locator(".example button")).toHaveCount(0);
+    await expect(page.locator(".trace li")).toHaveCount(4);
+    await expect(page.locator(".trace .result")).toBeVisible();
   });
 }
 

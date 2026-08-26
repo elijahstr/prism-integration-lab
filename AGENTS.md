@@ -7,3 +7,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# Demo delivery policy
+
+- Optimize this demo for fast deployment and a simple implementation.
+- The user authorizes direct pushes to `main` for this repository.
+- Full test-driven development is not required.
+- Before each push, run `bun run format:check`, `bun run typecheck`, and `bun run build`.

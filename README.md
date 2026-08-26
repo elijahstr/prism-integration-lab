@@ -9,7 +9,7 @@ The scenario uses Come and Take It Live in Austin and Come and Take It Productio
 ## What is included
 
 - Seven topic tabs on one page
-- Architecture diagrams for each topic
+- Architecture diagrams for each of the six challenge topics
 - Clear approach comparisons with pros, cons, and technical debt
 - Six deterministic browser-only examples
 - A responsive Poppins and Prism-purple interface

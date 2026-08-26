@@ -3,43 +3,13 @@
 import type { KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import { ArchitectureDiagram } from "./architecture-diagrams";
 import {
   isLessonId,
   LESSONS,
   type Lesson,
   type LessonId,
 } from "../lib/lessons";
-
-function Diagram({ lesson }: { lesson: Lesson }) {
-  return (
-    <figure
-      className="diagram"
-      aria-labelledby={`${lesson.id}-diagram-caption`}
-    >
-      <figcaption id={`${lesson.id}-diagram-caption`}>
-        {lesson.diagram.caption}
-      </figcaption>
-      <div className="diagram-flow">
-        {lesson.diagram.nodes.map((node, index) => (
-          <div className="diagram-step" key={node.label}>
-            <article
-              className={node.accent ? "diagram-node accent" : "diagram-node"}
-            >
-              <strong>{node.label}</strong>
-              <span>{node.detail}</span>
-            </article>
-            {index < lesson.diagram.arrows.length ? (
-              <div className="diagram-arrow" aria-hidden="true">
-                <span>{lesson.diagram.arrows[index]}</span>
-                <b>→</b>
-              </div>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </figure>
-  );
-}
 
 function Approaches({ lesson }: { lesson: Lesson }) {
   if (!lesson.approaches) return null;
@@ -96,13 +66,7 @@ function Approaches({ lesson }: { lesson: Lesson }) {
 }
 
 function Example({ lesson }: { lesson: Lesson }) {
-  const [step, setStep] = useState(-1);
-
-  useEffect(() => setStep(-1), [lesson.id]);
-
   if (!lesson.example) return null;
-
-  const complete = step >= lesson.example.steps.length - 1;
 
   return (
     <section className="example" aria-labelledby="example-title">
@@ -110,23 +74,17 @@ function Example({ lesson }: { lesson: Lesson }) {
         <p className="section-kicker">Browser-only example</p>
         <h2 id="example-title">{lesson.example.title}</h2>
         <p>{lesson.example.setup}</p>
-        <button
-          type="button"
-          onClick={() => setStep((current) => (complete ? -1 : current + 1))}
-        >
-          {step < 0 ? "Run example" : complete ? "Reset example" : "Next step"}
-        </button>
       </div>
-      <ol className="trace" aria-live="polite">
+      <ol className="trace">
         {lesson.example.steps.map((item, index) => (
-          <li className={index <= step ? "visible" : ""} key={item}>
+          <li key={item}>
             <span>{String(index + 1).padStart(2, "0")}</span>
-            <p>{index <= step ? item : "Waiting"}</p>
+            <p>{item}</p>
           </li>
         ))}
-        <li className={complete ? "visible result" : "result"}>
+        <li className="result">
           <span>✓</span>
-          <p>{complete ? lesson.example.result : "Result"}</p>
+          <p>{lesson.example.result}</p>
         </li>
       </ol>
     </section>
@@ -229,7 +187,12 @@ export function IntegrationLab() {
           </figure>
         ) : null}
 
-        <Diagram lesson={lesson} />
+        {lesson.id !== "overview" && lesson.diagramCaption ? (
+          <ArchitectureDiagram
+            caption={lesson.diagramCaption}
+            lessonId={lesson.id}
+          />
+        ) : null}
         <Approaches lesson={lesson} />
         <Example lesson={lesson} />
       </article>
