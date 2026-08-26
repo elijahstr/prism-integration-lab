@@ -382,10 +382,14 @@ main {
   margin: 0;
 }
 
-.approach-grid {
+.recommended-approach {
+  margin-bottom: 20px;
+}
+
+.alternative-approaches {
   display: grid;
   gap: 20px;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .approach-wrap {
@@ -394,17 +398,20 @@ main {
 }
 
 .recommended-label,
-.label-spacer {
+.alternative-label {
   font-size: 0.68rem;
   font-weight: 700;
-  height: 25px;
   letter-spacing: 0.08em;
-  margin: 0;
+  margin: 0 0 8px;
   text-transform: uppercase;
 }
 
 .recommended-label {
   color: var(--green);
+}
+
+.alternative-label {
+  color: var(--muted);
 }
 
 .approach {
@@ -566,16 +573,8 @@ footer div {
     margin-top: 18px;
   }
 
-  .approach-grid {
+  .alternative-approaches {
     grid-template-columns: 1fr;
-  }
-
-  .label-spacer {
-    display: none;
-  }
-
-  .approach-wrap:not(:first-child) {
-    margin-top: 5px;
   }
 }
 

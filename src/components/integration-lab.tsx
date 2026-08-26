@@ -14,54 +14,67 @@ import {
 function Approaches({ lesson }: { lesson: Lesson }) {
   if (!lesson.approaches) return null;
 
+  const [recommended, ...alternatives] = lesson.approaches;
+
   return (
     <section className="approaches" aria-labelledby="approaches-title">
       <div className="section-heading">
         <p>Architecture choices</p>
-        <h2 id="approaches-title">Three ways to handle it</h2>
+        <h2 id="approaches-title">Choose the control that protects the show</h2>
       </div>
-      <div className="approach-grid">
-        {lesson.approaches.map((approach) => (
+      <div className="recommended-approach">
+        <p className="recommended-label">Recommended</p>
+        <ApproachCard approach={recommended} recommended />
+      </div>
+      <div className="alternative-approaches">
+        {alternatives.map((approach) => (
           <div className="approach-wrap" key={approach.name}>
-            {approach.recommended ? (
-              <p className="recommended-label">Recommended</p>
-            ) : (
-              <div className="label-spacer" aria-hidden="true" />
-            )}
-            <article
-              className={
-                approach.recommended ? "approach recommended" : "approach"
-              }
-            >
-              <h3>{approach.name}</h3>
-              <p className="fit">{approach.fit}</p>
-              <div className="pros-cons">
-                <div>
-                  <h4>Pros</h4>
-                  <ul>
-                    {approach.pros.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h4>Cons</h4>
-                  <ul>
-                    {approach.cons.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-              <div className="debt">
-                <strong>Technical debt</strong>
-                <span>{approach.debt}</span>
-              </div>
-            </article>
+            <p className="alternative-label">Alternate approach</p>
+            <ApproachCard approach={approach} />
           </div>
         ))}
       </div>
     </section>
+  );
+}
+
+function ApproachCard({
+  approach,
+  recommended = false,
+}: {
+  approach: NonNullable<Lesson["approaches"]>[number];
+  recommended?: boolean;
+}) {
+  return (
+    <article
+      className={recommended ? "approach recommended" : "approach"}
+      data-approach-kind={recommended ? "recommended" : "alternate"}
+    >
+      <h3>{approach.name}</h3>
+      <p className="fit">{approach.fit}</p>
+      <div className="pros-cons">
+        <div>
+          <h4>Pros</h4>
+          <ul>
+            {approach.pros.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h4>Cons</h4>
+          <ul>
+            {approach.cons.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="debt">
+        <strong>Technical debt</strong>
+        <span>{approach.debt}</span>
+      </div>
+    </article>
   );
 }
 

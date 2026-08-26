@@ -398,103 +398,130 @@ function PollingDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="Prism requests a proposed Posh order and attendee snapshot for the hypothetical Come and Take It Live show. Only a complete scope can change venue sales and Come and Take It Productions actuals. Polling is a design option, not a stated Posh capability."
-      height={540}
+      description="For the hypothetical Come and Take It Live show, a three-page proposed Posh ticket report enters a provider adapter. The adapter returns normalized records and completeness metadata. Prism stages an incomplete candidate, preserves the last complete snapshot, retries the failed page or cursor, and publishes only after every page arrives and validation succeeds."
+      height={590}
       id="polling-snapshots"
     >
-      <Node
-        lines={["cursor · retry budget"]}
-        title="Prism poll"
-        width={170}
-        x={35}
-        y={205}
-      />
       <Boundary
-        height={360}
-        label="Proposed Posh pages"
-        width={270}
-        x={255}
+        height={430}
+        label="Proposed Posh ticket report"
+        width={245}
+        x={20}
         y={75}
       />
       <Node
-        lines={["orders 1–100"]}
+        lines={["records arrive"]}
         title="Posh page 1"
-        width={190}
-        x={295}
+        width={195}
+        x={45}
         y={125}
       />
       <Node
-        lines={["orders 101–200"]}
+        lines={["records arrive"]}
         title="Posh page 2"
-        width={190}
-        x={295}
-        y={235}
+        width={195}
+        x={45}
+        y={240}
       />
       <Node
-        lines={["final cursor"]}
+        lines={["fails · keep cursor"]}
         title="Posh page 3"
-        width={190}
-        x={295}
-        y={345}
+        tone="red"
+        width={195}
+        x={45}
+        y={355}
+      />
+      <Node
+        lines={["pagination · cursor", "rate limit · errors"]}
+        title="Provider adapter"
+        width={210}
+        x={315}
+        y={220}
       />
       <Store
-        detail="isolated candidate"
+        detail="candidate + metadata"
         title="Snapshot staging"
-        width={175}
-        x={550}
-        y={205}
-      />
-      <Decision cx={850} cy={245} lines={["scope", "complete?"]} />
-      <Node
-        lines={["venue sales", "Productions actuals"]}
-        title="Come and Take It Live"
-        tone="green"
         width={195}
-        x={785}
-        y={385}
+        x={570}
+        y={235}
+      />
+      <Decision cx={855} cy={285} lines={["complete and", "valid?"]} />
+      <Node
+        lines={["venue sales · promoter actuals", "safe for settlement"]}
+        title="Complete snapshot"
+        tone="green"
+        width={215}
+        x={755}
+        y={440}
       />
       <Node
-        lines={["keep prior snapshot", "Productions reviews"]}
-        title="Safe failure"
+        lines={[
+          "keep last complete snapshot",
+          "mark stale · alert after limit",
+        ]}
+        title="Incomplete candidate"
         tone="red"
-        width={170}
-        x={790}
+        width={235}
+        x={735}
         y={70}
       />
       <Edge
-        d="M205 248 H255"
-        label="request"
-        labelX={207}
-        labelY={235}
+        d="M142 197 V240"
+        label="page 1"
+        labelX={150}
+        labelY={226}
         markerId={markerId}
       />
       <Edge
-        d="M525 245 H550"
+        d="M142 312 V355"
+        label="page 2"
+        labelX={150}
+        labelY={341}
+        markerId={markerId}
+      />
+      <Edge
+        d="M240 398 C275 398 275 275 315 275"
+        label="normalized records + completeness"
+        labelX={165}
+        labelY={420}
+        markerId={markerId}
+      />
+      <Edge
+        d="M525 275 H570"
         label="stage"
-        labelX={525}
-        labelY={232}
+        labelX={530}
+        labelY={260}
         markerId={markerId}
       />
       <Edge
-        d="M725 245 H772"
+        d="M765 285 H777"
         label="validate"
-        labelX={726}
-        labelY={232}
+        labelX={765}
+        labelY={270}
         markerId={markerId}
       />
       <Edge
-        d="M850 299 V385"
-        label="yes"
-        labelX={860}
-        labelY={340}
+        d="M855 339 V440"
+        label="yes · publish"
+        labelX={865}
+        labelY={390}
         markerId={markerId}
         tone="green"
       />
       <Edge
-        d="M850 191 V158"
+        d="M855 231 V178"
         label="no"
-        labelX={860}
-        labelY={180}
+        labelX={865}
+        labelY={210}
+        markerId={markerId}
+        tone="red"
+      />
+      <Edge
+        d="M735 125 C620 45 200 45 142 355"
+        dashed
+        label="retry failed page or cursor"
+        labelX={375}
+        labelY={53}
         markerId={markerId}
         tone="red"
       />
@@ -508,77 +535,98 @@ function OrderingDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="A Come and Take It Live confirmation and a Come and Take It Productions hold meet at Prism transition rules. A proposed Posh onboarding update can change the show only when its version and business state are safe."
-      height={520}
+      description="One Prism show record is the source of truth for the hypothetical Come and Take It Live show. It holds the accepted date, room, status, and version across venue and promoter calendars, DICE, Tixr, and proposed Posh. Prism publishes valid current updates. It sends stale, conflicting, or invalid updates to review."
+      height={590}
       id="ordering-conflicts"
     >
+      <Boundary
+        height={455}
+        label="Venue, promoter, and provider updates"
+        width={270}
+        x={20}
+        y={65}
+      />
       <Node
-        lines={["confirmed · version 8"]}
-        title="Come and Take It Live"
+        lines={["Come and Take It Live", "confirmed room + date · v8"]}
+        title="Venue calendar"
         width={230}
-        x={25}
-        y={105}
+        x={40}
+        y={115}
       />
       <Node
-        lines={["hold · based on v7"]}
-        title="Come and Take It Productions"
-        width={255}
-        x={25}
-        y={315}
+        lines={["Come and Take It Productions", "hold or offer · v7"]}
+        title="Promoter calendar"
+        width={230}
+        x={40}
+        y={245}
       />
       <Node
-        lines={["proposed Posh update", "check allowed transition"]}
-        title="Onboarding conflict rule"
+        lines={["DICE · Tixr · proposed Posh"]}
+        title="Ticket providers"
+        width={230}
+        x={40}
+        y={375}
+      />
+      <Node
+        lines={["accepted date · room", "status · version 8"]}
+        title="Prism show record"
         tone="purple"
-        width={225}
-        x={335}
-        y={205}
+        width={250}
+        x={355}
+        y={225}
       />
-      <Decision cx={690} cy={255} lines={["safe to", "apply?"]} />
+      <Decision cx={730} cy={285} lines={["valid and", "current?"]} />
       <Node
-        lines={["write next version", "publish new state"]}
-        title="Show record"
+        lines={["venue + promoter calendars", "DICE · Tixr · proposed Posh"]}
+        title="Publish accepted state"
         tone="green"
-        width={180}
-        x={790}
-        y={105}
+        width={230}
+        x={745}
+        y={115}
       />
       <Node
-        lines={["preserve evidence", "assign operator"]}
+        lines={["preserve evidence", "assign venue or promoter owner"]}
         title="Needs review"
         tone="red"
-        width={180}
-        x={790}
-        y={315}
+        width={230}
+        x={745}
+        y={390}
       />
       <Edge
-        d="M255 148 C290 148 290 230 335 240"
-        label="new fact"
-        labelX={260}
-        labelY={145}
+        d="M270 158 C320 158 315 245 355 255"
+        label="calendar update"
+        labelX={275}
+        labelY={150}
         markerId={markerId}
       />
       <Edge
-        d="M280 358 C300 358 300 285 335 275"
-        label="stale fact"
-        labelX={255}
-        labelY={375}
+        d="M270 288 H355"
+        label="hold update"
+        labelX={278}
+        labelY={276}
         markerId={markerId}
       />
-      <Edge d="M560 255 H612" markerId={markerId} />
       <Edge
-        d="M690 201 C690 148 740 148 790 148"
+        d="M270 418 C320 418 315 325 355 315"
+        label="provider update"
+        labelX={275}
+        labelY={438}
+        markerId={markerId}
+      />
+      <Edge d="M605 285 H652" markerId={markerId} />
+      <Edge
+        d="M730 231 C730 160 740 160 745 160"
         label="yes"
-        labelX={700}
-        labelY={160}
+        labelX={740}
+        labelY={205}
         markerId={markerId}
         tone="green"
       />
       <Edge
-        d="M690 309 C690 358 740 358 790 358"
+        d="M730 339 C730 433 740 433 745 433"
         label="no"
-        labelX={700}
-        labelY={350}
+        labelX={740}
+        labelY={375}
         markerId={markerId}
         tone="red"
       />
@@ -592,95 +640,88 @@ function MoneyDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="DICE, Tixr, and proposed Posh ticket facts join the hypothetical Come and Take It Live venue costs and the Come and Take It Productions deal. Prism classifies each amount before settlement and reconciliation."
-      height={560}
+      description="For the hypothetical Come and Take It Live show, Prism receives a $45.00 ticket refund and a separate $3.50 retained provider fee. Prism records them as sourced ledger entries with venue costs, guarantee, and co-pro split. The settlement therefore shows each party what it owes or receives."
+      height={590}
       id="money-refunds"
     >
       <Boundary
-        height={430}
+        height={455}
         label="Financial sources"
-        width={270}
-        x={15}
+        width={285}
+        x={20}
         y={60}
       />
       <Node
-        lines={["sales · fees · refunds"]}
-        title="DICE"
-        width={220}
-        x={40}
+        lines={["ticket refund −$45.00", "retained fee +$3.50"]}
+        title="Provider report"
+        width={240}
+        x={42}
         y={120}
       />
       <Node
-        lines={["ticket tiers · comps"]}
-        title="Tixr"
-        width={220}
-        x={40}
-        y={245}
+        lines={["venue costs · guarantee", "co-pro split"]}
+        title="Show terms"
+        width={240}
+        x={42}
+        y={335}
       />
       <Node
-        lines={["fees · refunds · Kickback"]}
-        title="Posh (proposed)"
-        width={220}
-        x={40}
-        y={370}
-      />
-      <Node
-        lines={["Come and Take It Live costs", "Productions deal + split"]}
-        title="Classify entry"
+        lines={["amount · owner · reason", "provider or deal source"]}
+        title="Classify sourced entries"
         tone="purple"
-        width={225}
-        x={350}
-        y={230}
+        width={235}
+        x={365}
+        y={240}
       />
       <Store
-        detail="append-only entries"
+        detail="revenue · fee · refund · cost"
         title="Prism ledger"
-        width={205}
+        width={220}
         x={650}
-        y={230}
+        y={240}
       />
       <Node
-        lines={["deal terms · splits"]}
-        title="Settlement"
+        lines={["refund and fee stay separate", "calculate each party balance"]}
+        title="Show settlement"
         tone="green"
-        width={170}
-        x={800}
-        y={80}
+        width={235}
+        x={740}
+        y={105}
       />
       <Node
-        lines={["source totals · audit"]}
+        lines={["source totals · audit trail"]}
         title="Reconciliation"
-        width={170}
-        x={800}
-        y={385}
+        width={220}
+        x={745}
+        y={395}
       />
-      {[163, 288, 413].map((y) => (
+      {[176, 391].map((y) => (
         <Edge
-          d={`M245 ${y} C305 ${y} 305 273 350 273`}
+          d={`M282 ${y} C330 ${y} 330 283 365 283`}
           key={y}
           markerId={markerId}
         />
       ))}
       <Edge
-        d="M575 273 H650"
-        label="typed cents"
-        labelX={583}
-        labelY={260}
+        d="M600 283 H650"
+        label="typed entries"
+        labelX={607}
+        labelY={268}
         markerId={markerId}
       />
       <Edge
-        d="M752 230 C752 165 770 130 800 123"
+        d="M760 240 C760 180 740 175 740 175"
         label="calculate"
-        labelX={715}
-        labelY={170}
+        labelX={708}
+        labelY={195}
         markerId={markerId}
         tone="green"
       />
       <Edge
-        d="M752 304 C752 370 770 415 800 428"
+        d="M760 326 C760 370 745 440 745 440"
         label="compare"
-        labelX={720}
-        labelY={360}
+        labelX={708}
+        labelY={375}
         markerId={markerId}
       />
     </DiagramCanvas>

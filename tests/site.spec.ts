@@ -4,7 +4,9 @@ const establishedProviders = ["DICE", "Tixr"];
 const removedFooter =
   "Static architecture explainer · No live customer or provider data";
 
-async function expectProviderScenario(page: import("@playwright/test").Page) {
+async function expectOverviewProviderContext(
+  page: import("@playwright/test").Page,
+) {
   await expect(page.getByText(/Come and Take It Live/).first()).toBeVisible();
   await expect(
     page.getByText(/Come and Take It Productions/).first(),
@@ -22,6 +24,35 @@ async function expectProviderScenario(page: import("@playwright/test").Page) {
   }
 }
 
+async function expectVenueAndPromoterScenario(
+  page: import("@playwright/test").Page,
+) {
+  await expect(page.getByText(/Come and Take It Live/).first()).toBeVisible();
+  await expect(
+    page.getByText(/Come and Take It Productions/).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Posh is the proposed new provider in this hypothetical onboarding scenario.",
+    ),
+  ).toHaveCount(0);
+}
+
+async function expectApproachLayout(page: import("@playwright/test").Page) {
+  await expect(page.getByText("Recommended", { exact: true })).toHaveCount(1);
+  await expect(
+    page.getByText("Alternate approach", { exact: true }),
+  ).toHaveCount(2);
+  await expect(page.locator("[data-approach-kind]")).toHaveCount(3);
+  await expect(page.locator("[data-approach-kind]").first()).toHaveAttribute(
+    "data-approach-kind",
+    "recommended",
+  );
+  await expect(
+    page.locator(".recommended-approach > .recommended-label"),
+  ).toHaveText("Recommended");
+}
+
 test("shows the venue and promoter overview", async ({ page }) => {
   await page.goto("/");
 
@@ -29,7 +60,7 @@ test("shows the venue and promoter overview", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "One show, two operating views",
   );
-  await expectProviderScenario(page);
+  await expectOverviewProviderContext(page);
   await expect(
     page.getByRole("img", { name: /Come and Take It Live venue logo/ }),
   ).toBeVisible();
@@ -48,8 +79,8 @@ test("opens a lesson from its shareable URL", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "Provider data must mean the same thing",
   );
-  await expectProviderScenario(page);
-  await expect(page.getByText("Recommended")).toBeVisible();
+  await expectVenueAndPromoterScenario(page);
+  await expectApproachLayout(page);
   await expect(page.getByText("Technical debt")).toHaveCount(3);
 });
 
@@ -66,18 +97,25 @@ for (const lesson of [
   },
   {
     id: "polling-snapshots",
-    diagramName: /A proposed Posh ticket snapshot becomes/,
-    scenarioText: /Reject an incomplete proposed Posh snapshot/,
+    diagramName: /Prism stages a three-page ticket report/,
+    scenarioText: /Hold a partial three-page ticket report/,
+    detailText:
+      /The provider adapter handles pagination, cursors, completion signals/,
   },
   {
     id: "ordering-conflicts",
-    diagramName: /Prism protects the confirmed Come and Take It Live show/,
+    diagramName: /One Prism show record controls the accepted venue/,
     scenarioText: /Protect the confirmed Come and Take It Live show/,
+    detailText:
+      /One Prism show record holds the accepted date, room, status, and version/,
   },
   {
     id: "money-refunds",
-    diagramName: /DICE, Tixr, and proposed Posh/,
+    diagramName:
+      /Prism separates a \$45.00 refund from a \$3.50 retained provider fee/,
     scenarioText: /Apply a refund without hiding the provider fee/,
+    detailText:
+      /A customer receives a \$45.00 ticket refund, while a \$3.50 provider fee remains/,
   },
   {
     id: "reconciliation-recovery",
@@ -90,7 +128,7 @@ for (const lesson of [
   }) => {
     await page.goto(`/?lesson=${lesson.id}`);
 
-    await expectProviderScenario(page);
+    await expectVenueAndPromoterScenario(page);
     await expect(
       page.getByRole("img", { name: lesson.diagramName }),
     ).toBeVisible();
@@ -101,6 +139,10 @@ for (const lesson of [
     await expect(page.locator(".trace li")).toHaveCount(4);
     await expect(page.locator(".trace .result")).toBeVisible();
     await expect(page.getByText(removedFooter)).toHaveCount(0);
+    await expectApproachLayout(page);
+    if (lesson.detailText) {
+      await expect(page.getByText(lesson.detailText)).toBeVisible();
+    }
   });
 }
 
