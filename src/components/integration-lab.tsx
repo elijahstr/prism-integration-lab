@@ -222,7 +222,7 @@ export function IntegrationLab() {
             <img
               alt="Come and Take It Live venue logo on a dark wood background"
               height="1000"
-              src="/come-and-take-it-live.png"
+              src="/come-and-take-it-live.webp"
               width="1500"
             />
             <figcaption>Come and Take It Live · Austin, Texas</figcaption>
