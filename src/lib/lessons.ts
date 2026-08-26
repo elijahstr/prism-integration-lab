@@ -1,11 +1,9 @@
 export const LESSON_IDS = [
   "overview",
   "api-mapping",
-  "webhooks",
   "ordering-conflicts",
-  "money-refunds",
-  "reconciliation-recovery",
-  "polling-snapshots",
+  "ticket-data-integrity",
+  "transaction-accuracy",
 ] as const;
 
 export type LessonId = (typeof LESSON_IDS)[number];
@@ -112,129 +110,9 @@ const LESSONS_BY_ID: readonly Lesson[] = [
     },
   },
   {
-    id: "webhooks",
-    tab: "Webhooks",
-    eyebrow: "Challenge 02 · duplicate ticket facts",
-    title: "One ticket update must change totals once",
-    intro:
-      "For the Come and Take It Live show, a provider can send the same sale, refund, transfer, or cancelled ticket state more than once. Prism must not double-count the event.",
-    context:
-      "A webhook is a provider message that arrives after a change. The proposed Posh onboarding must treat webhooks as an option, not an assumed capability. Prism must accept a retry without creating a second financial fact.",
-    diagramCaption:
-      "A proposed Posh event enters Prism once, then updates the Come and Take It Live sales total and the Come and Take It Productions actuals.",
-    approaches: [
-      {
-        name: "Durable inbox + idempotency",
-        fit: "Come and Take It Productions needs reliable ticket actuals before settlement.",
-        pros: [
-          "A sale or refund retry is safe.",
-          "Prism can resume failed work from the original event.",
-        ],
-        cons: [
-          "Prism needs storage and a worker.",
-          "Each provider needs a stable event identity key.",
-        ],
-        debt: "The inbox needs retention, replay tools, and operational ownership.",
-        recommended: true,
-      },
-      {
-        name: "Process during the request",
-        fit: "A low-volume show feed with no settlement effect.",
-        pros: ["Simple request path.", "The update appears at once."],
-        cons: [
-          "Slow work can cause provider retries.",
-          "A crash can leave a partial sale or refund update.",
-        ],
-        debt: "Each added side effect makes the ticket endpoint slower and harder to recover.",
-      },
-      {
-        name: "Ignore duplicates by timestamp",
-        fit: "A display-only feed with no money or settlement effect.",
-        pros: ["Small implementation.", "No separate event store."],
-        cons: [
-          "A valid late refund can disappear.",
-          "Provider clocks can order facts incorrectly.",
-        ],
-        debt: "Exception rules grow when ticket transfers and refunds arrive out of order.",
-      },
-    ],
-    example: {
-      title: "Receive a duplicate proposed Posh sale",
-      setup:
-        "A design assumption sends the same Posh sale event twice after a network timeout.",
-      steps: [
-        "Store the first delivery under its provider event ID.",
-        "Apply the sale to the Come and Take It Live sold count and mark it complete.",
-        "Acknowledge the retry without changing the Come and Take It Productions gross actuals again.",
-      ],
-      result:
-        "The sale increases the show total once, and Prism keeps the duplicate event for audit.",
-    },
-  },
-  {
-    id: "polling-snapshots",
-    tab: "Polling & Snapshots",
-    eyebrow: "Challenge 06 · complete sales scope",
-    title: "Do not publish a partial ticket report",
-    intro:
-      "Prism can ask a provider for a ticket report in pages. A snapshot is the complete sales picture for one show at one time. An incomplete report must not replace the last trusted sales total.",
-    context:
-      "The provider adapter handles pagination, cursors, completion signals, rate limits, and provider errors. It returns normalized records plus completeness metadata. The adapter says what the provider sent. The Prism synchronization workflow decides if the snapshot is safe to publish.",
-    diagramCaption:
-      "Prism stages a three-page ticket report, then publishes it only after every page arrives and validation succeeds.",
-    approaches: [
-      {
-        name: "Stage, validate, then publish",
-        fit: "The show sales total affects the promoter’s ticket scaling and settlement.",
-        pros: [
-          "Users keep one complete, consistent sales view.",
-          "An incomplete candidate cannot change ticket actuals or settlement.",
-        ],
-        cons: [
-          "Prism needs staging and retry state.",
-          "Freshness waits for the final page and validation.",
-        ],
-        debt: "Staging cleanup, retry limits, and stale-data alerts need operational ownership.",
-        recommended: true,
-      },
-      {
-        name: "Replace after every page",
-        fit: "A small inventory list with no page cursor.",
-        pros: ["Fresh data appears quickly.", "Little temporary storage."],
-        cons: [
-          "A failed page creates a false sold count.",
-          "The promoter sees changing intermediate gross.",
-        ],
-        debt: "Recovery becomes tied to page order and provider-specific cursor behavior.",
-      },
-      {
-        name: "Append every observed order",
-        fit: "A provider feed gives immutable transactions only.",
-        pros: ["Preserves history.", "Partial batches remain useful."],
-        cons: [
-          "Prism cannot infer cancelled tickets.",
-          "Corrections need explicit events.",
-        ],
-        debt: "Prism must build projection and correction rules for each ticket report.",
-      },
-    ],
-    example: {
-      title: "Hold a partial three-page ticket report",
-      setup:
-        "For the Come and Take It Live show, pages one and two of a proposed Posh ticket report arrive. Page three fails before the report completes.",
-      steps: [
-        "Store pages one and two as an incomplete candidate in staging, with the failed page and cursor.",
-        "Keep the last complete snapshot published for the venue calendar, promoter actuals, and settlement.",
-        "Retry from the failed page or cursor. Publish only after page three arrives and full-scope validation succeeds.",
-      ],
-      result:
-        "If retries fail, Prism marks the data stale, preserves the evidence, alerts an operator after the retry limit, and never calculates settlement from the incomplete report.",
-    },
-  },
-  {
     id: "ordering-conflicts",
     tab: "Ordering & Conflicts",
-    eyebrow: "Challenge 03 · venue and promoter state",
+    eyebrow: "Challenge 02 · venue and promoter state",
     title: "One show record is the source of truth",
     intro:
       "One Prism show record holds the accepted date, room, status, and version across Come and Take It Live, Come and Take It Productions, their calendars, and ticket providers. A later message does not automatically win.",
@@ -292,126 +170,126 @@ const LESSONS_BY_ID: readonly Lesson[] = [
     },
   },
   {
-    id: "money-refunds",
-    tab: "Money & Refunds",
-    eyebrow: "Challenge 04 · settlement components",
-    title: "A refund and a fee need separate entries",
+    id: "ticket-data-integrity",
+    tab: "Ticket Data Integrity",
+    eyebrow: "Challenge 03 · complete ticket facts",
+    title: "Apply events once and publish complete ticket facts",
     intro:
-      "A customer receives a $45.00 ticket refund, while a $3.50 provider fee remains. One net or gross value cannot show who owes what in the Come and Take It Live and Come and Take It Productions settlement.",
+      "Prism applies each provider event once and publishes ticket totals only after it has a complete report. It does not prove that a provider report is true. It protects complete, traceable, and current ticket facts for the show.",
     context:
-      "Prism stores ticket revenue, fees, refunds, venue costs, the guarantee, and the co-pro split as sourced entries. Each entry has an amount, owner, reason, and source. This makes the settlement explainable when a provider keeps a fee after a refund.",
+      "Idempotency means a retry has the same effect as one delivery. Webhooks provide fast updates. Polling asks a provider for a paged report. Prism keeps incomplete reports in staging, keeps the last complete facts visible, and records the provider evidence and time for each published snapshot.",
     diagramCaption:
-      "Prism separates a $45.00 refund from a $3.50 retained provider fee before it calculates the show settlement.",
+      "Prism applies a proposed Posh sale once, then publishes the Come and Take It Live ticket total only after a complete report validates.",
     approaches: [
       {
-        name: "Typed financial ledger",
-        fit: "The venue and promoter need a defendable show settlement.",
+        name: "Durable inbox + staged complete snapshots",
+        fit: "Come and Take It Live and Come and Take It Productions need fresh ticket actuals without double-counts or partial totals.",
         pros: [
-          "Each sale, fee, refund, venue cost, guarantee, and split has a source and owner.",
-          "The settlement can show why $45.00 returns to the customer while $3.50 remains a provider fee.",
+          "A sale or refund retry is safe and traceable.",
+          "An incomplete provider report cannot replace trusted ticket facts.",
         ],
         cons: [
-          "The team needs accounting discipline.",
-          "Corrections need reversal entries.",
+          "Prism needs durable intake, staging, and retry state.",
+          "The newest total waits for the final page and validation.",
         ],
-        debt: "The entry taxonomy and settlement projections need governance.",
+        debt: "Inbox retention, snapshot cleanup, stale-data alerts, and replay tools need operational ownership.",
         recommended: true,
       },
       {
-        name: "Store one net total",
-        fit: "A temporary dashboard with no settlement use.",
-        pros: ["Easy to display.", "Few fields."],
+        name: "Process immediately and replace by page",
+        fit: "A display-only list with no settlement or operational decision.",
+        pros: ["Small request path.", "Each page appears quickly."],
         cons: [
-          "It hides fees, refunds, comps, and affiliate commissions.",
-          "It cannot explain the guarantee or co-pro split.",
+          "A duplicate can change the total twice.",
+          "A failed final page can publish a false sold count.",
         ],
-        debt: "Later reconciliation needs raw ticket data that the model did not preserve.",
+        debt: "Recovery becomes tied to page order, request failures, and provider-specific cursor behavior.",
       },
       {
-        name: "Recalculate from raw payloads",
-        fit: "An audit tool, not the primary settlement path.",
-        pros: ["Preserves provider detail.", "Rules can replay history."],
+        name: "Use periodic reports only",
+        fit: "A low-frequency dashboard that does not need near-real-time ticket changes.",
+        pros: ["One provider access path.", "No webhook endpoint."],
         cons: [
-          "Reports cost more to compute.",
-          "Rule changes can alter past results.",
+          "Sales, refunds, and transfers remain stale between reports.",
+          "A failed report delays discovery of ticket changes.",
         ],
-        debt: "Every report depends on old provider schemas and code versions.",
+        debt: "Operators add manual checks and special report schedules as show volume grows.",
       },
     ],
     example: {
-      title: "Apply a refund without hiding the provider fee",
+      title: "Keep one trustworthy sold count",
       setup:
-        "A proposed Posh ticket refund returns $45.00 for the Come and Take It Live show, but a $3.50 fee remains under the provider policy.",
+        "A proposed Posh sale for the Come and Take It Live show arrives twice. A later three-page Posh report fails on page three before it completes.",
       steps: [
-        "Record a -$45.00 ticket-revenue reversal against the original sale, with the provider report as its source.",
-        "Keep the $3.50 provider-fee entry, owner, and policy source as a separate fact.",
-        "Calculate the venue cost, guarantee, and co-pro split from the sourced entries, not from one net total.",
+        "Store the first sale under its provider event ID and acknowledge the retry without a second sold-count change.",
+        "Stage report pages one and two with the failed page-three cursor, while the last complete ticket facts stay visible.",
+        "Retry page three and validate the full report scope before Prism publishes the candidate snapshot.",
       ],
       result:
-        "The settlement shows the refund, retained fee, and each party’s balance as separate, explainable facts.",
+        "Come and Take It Live and Come and Take It Productions see one trustworthy sold count, with evidence for the event and the completed report.",
     },
   },
   {
-    id: "reconciliation-recovery",
-    tab: "Reconciliation & Recovery",
-    eyebrow: "Challenge 05 · close the show with proof",
-    title: "Settlement must explain each difference",
+    id: "transaction-accuracy",
+    tab: "Transaction Accuracy",
+    eyebrow: "Challenge 04 · accurate show settlement",
+    title: "Keep each money fact separate until settlement",
     intro:
-      "Before the hypothetical show closes, Come and Take It Live and Come and Take It Productions compare the offer, guarantee, ticket actuals, payments, expenses, and co-pro split.",
+      "Prism records each financial component, then reconciles those facts before the show closes. This keeps ticket money, venue costs, and promoter deal terms accurate and explainable.",
     context:
-      "Reconciliation compares independent records and explains a difference. Recovery resumes failed work from a checkpoint without deleting evidence. A proposed Posh payout or commission can enter this same close process after Prism maps it.",
+      "A typed financial ledger stores each amount with its type, owner, reason, and source. Reconciliation compares expected and actual balances. A review queue isolates only unmatched facts. A checkpoint is the last verified step, so Prism can resume settlement without repeating completed work.",
     diagramCaption:
-      "Prism compares the Come and Take It Productions offer with Come and Take It Live actuals, including existing providers and the proposed Posh onboarding flow, before settlement.",
+      "Prism keeps refund, fee, cost, and deal facts separate, then reconciles the Come and Take It Live and Come and Take It Productions settlement.",
     approaches: [
       {
-        name: "Automated checks + review queue",
-        fit: "Regular venue and promoter settlement with multiple ticket providers.",
+        name: "Typed ledger + automated reconciliation",
+        fit: "The venue and promoter need a dependable show close across ticket providers, costs, guarantees, and co-pro splits.",
         pros: [
-          "Common differences resolve automatically.",
-          "People focus on a missing payout, receipt, or commission.",
+          "Each refund, retained fee, cost, and deal term has a source and owner.",
+          "Prism sends only unmatched facts to review and resumes from a verified checkpoint.",
         ],
         cons: [
-          "Rules need thresholds and owners.",
-          "The review queue needs clear resolution states.",
+          "The team needs entry types, reconciliation rules, and review ownership.",
+          "Corrections need reversal entries instead of hidden edits.",
         ],
-        debt: "Unowned exceptions can become an operational backlog.",
+        debt: "The ledger taxonomy, thresholds, and resolution workflow need continuing finance and product ownership.",
         recommended: true,
       },
       {
-        name: "Manual spreadsheet close",
-        fit: "Rare shows with one operator and few sources.",
-        pros: ["Flexible for unusual deals.", "No new product workflow."],
+        name: "One net total + manual spreadsheet close",
+        fit: "A rare internal estimate with one operator and no audit requirement.",
+        pros: ["Few fields to maintain.", "Flexible for a one-off deal."],
         cons: [
-          "An operator can copy the wrong gross or expense.",
-          "Evidence lives outside Prism.",
+          "It hides fees, refunds, and cost ownership.",
+          "Evidence and formula changes live outside Prism.",
         ],
-        debt: "Each operator creates a different settlement process that is hard to audit.",
+        debt: "Each operator creates a different close process that is difficult to audit or repeat.",
       },
       {
-        name: "Block until every source matches",
-        fit: "A close process with strict source equality.",
+        name: "Recalculate from raw provider data",
+        fit: "An audit investigation, not the primary settlement process.",
         pros: [
-          "No unresolved difference passes.",
-          "A strong control boundary.",
+          "Preserves provider detail.",
+          "Can replay a known rule version.",
         ],
         cons: [
-          "One delayed payout blocks settlement.",
-          "Minor rounding differences stop the close.",
+          "Reports cost more to compute.",
+          "A provider schema or rule change can alter old results.",
         ],
-        debt: "Teams create bypasses when the strict gate does not fit real show operations.",
+        debt: "Every settlement report remains coupled to old provider payloads and historical rules.",
       },
     ],
     example: {
-      title: "Recover a Posh settlement check",
+      title: "Close a settlement without hiding an exception",
       setup:
-        "Ticket totals match, but a proposed Posh affiliate commission and a $250 production expense need evidence before the Come and Take It Productions settlement.",
+        "A customer receives a $45.00 refund. The provider retains a $3.50 fee. A $250.00 Come and Take It Productions expense has no evidence.",
       steps: [
-        "Mark the DICE, Tixr, and Posh ticket comparison complete at its checkpoint.",
-        "Route only the unmatched commission and expense to the promoter review queue.",
-        "Attach evidence, approve the entries, and resume the settlement from the checkpoint.",
+        "Record the refund reversal and retained fee as separate typed ledger entries, then verify the ticket facts.",
+        "Reconcile the venue costs and promoter deal terms. Send only the unsupported $250.00 expense to review.",
+        "Attach the expense evidence, approve the entry, and resume the settlement from the saved checkpoint.",
       ],
       result:
-        "The show closes without repeating verified work or hiding the exception from the audit trail.",
+        "Prism keeps each money entry accurate and closes the Come and Take It Live and Come and Take It Productions settlement with an explainable audit trail.",
     },
   },
 ];
@@ -421,6 +299,20 @@ export const LESSONS: readonly Lesson[] = LESSON_IDS.map((id) => {
   if (!lesson) throw new Error(`No lesson found for ${id}`);
   return lesson;
 });
+
+const LEGACY_LESSON_ALIASES = {
+  webhooks: "ticket-data-integrity",
+  "polling-snapshots": "ticket-data-integrity",
+  "money-refunds": "transaction-accuracy",
+  "reconciliation-recovery": "transaction-accuracy",
+} as const satisfies Record<string, LessonId>;
+
+export function resolveLessonId(value: string | null): LessonId {
+  if (isLessonId(value)) return value;
+  if (value && value in LEGACY_LESSON_ALIASES)
+    return LEGACY_LESSON_ALIASES[value as keyof typeof LEGACY_LESSON_ALIASES];
+  return "overview";
+}
 
 export function isLessonId(value: string | null): value is LessonId {
   return LESSON_IDS.includes(value as LessonId);

@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { ArchitectureDiagram } from "./architecture-diagrams";
 import {
-  isLessonId,
   LESSONS,
+  resolveLessonId,
   type Lesson,
   type LessonId,
 } from "../lib/lessons";
@@ -112,7 +112,15 @@ export function IntegrationLab() {
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("lesson");
-    if (isLessonId(requested)) setActiveId(requested);
+    const resolved = resolveLessonId(requested);
+    setActiveId(resolved);
+
+    if (requested !== resolved) {
+      const url = new URL(window.location.href);
+      if (resolved === "overview") url.searchParams.delete("lesson");
+      else url.searchParams.set("lesson", resolved);
+      window.history.replaceState({}, "", url);
+    }
   }, []);
 
   function selectLesson(id: LessonId, focus = false) {

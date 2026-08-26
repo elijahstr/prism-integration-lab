@@ -8,10 +8,10 @@ The scenario uses Come and Take It Live in Austin and Come and Take It Productio
 
 ## What is included
 
-- Seven topic tabs on one page
-- Architecture diagrams for each of the six challenge topics
+- Five topic tabs on one page
+- Architecture diagrams for each of the four challenge topics
 - Clear approach comparisons with pros, cons, and technical debt
-- Six deterministic browser-only examples
+- Four preloaded worked scenarios
 - A responsive Poppins and Prism-purple interface
 
 ## Architecture
@@ -35,7 +35,7 @@ Open [http://localhost:3000](http://localhost:3000).
 bun run verify
 ```
 
-This command checks formatting, types, the production export, all tabs, keyboard navigation, the venue image, and every example.
+This command checks formatting, types, the production export, all tabs, keyboard navigation, the venue image, and every worked scenario.
 
 ## Deploy to Vercel
 

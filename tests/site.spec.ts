@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 const establishedProviders = ["DICE", "Tixr"];
+const providerContext =
+  "Posh is the proposed new provider in this hypothetical onboarding scenario.";
 const removedFooter =
   "Static architecture explainer · No live customer or provider data";
 
@@ -11,11 +13,7 @@ async function expectOverviewProviderContext(
   await expect(
     page.getByText(/Come and Take It Productions/).first(),
   ).toBeVisible();
-  await expect(
-    page.getByText(
-      "Posh is the proposed new provider in this hypothetical onboarding scenario.",
-    ),
-  ).toBeVisible();
+  await expect(page.getByText(providerContext)).toBeVisible();
 
   for (const provider of establishedProviders) {
     await expect(
@@ -31,11 +29,7 @@ async function expectVenueAndPromoterScenario(
   await expect(
     page.getByText(/Come and Take It Productions/).first(),
   ).toBeVisible();
-  await expect(
-    page.getByText(
-      "Posh is the proposed new provider in this hypothetical onboarding scenario.",
-    ),
-  ).toHaveCount(0);
+  await expect(page.getByText(providerContext)).toHaveCount(0);
 }
 
 async function expectApproachLayout(page: import("@playwright/test").Page) {
@@ -53,6 +47,16 @@ async function expectApproachLayout(page: import("@playwright/test").Page) {
   ).toHaveText("Recommended");
 }
 
+async function expectNoDocumentOverflow(page: import("@playwright/test").Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    )
+    .toBe(true);
+}
+
 test("shows the venue and promoter overview", async ({ page }) => {
   await page.goto("/");
 
@@ -64,21 +68,19 @@ test("shows the venue and promoter overview", async ({ page }) => {
   await expect(
     page.getByRole("img", { name: /Come and Take It Live venue logo/ }),
   ).toBeVisible();
-  await expect(page.getByRole("tab")).toHaveCount(7);
+  await expect(page.getByRole("tab")).toHaveCount(5);
   await expect(page.getByRole("tab")).toHaveText([
     "Overview",
     "API Mapping",
-    "Webhooks",
     "Ordering & Conflicts",
-    "Money & Refunds",
-    "Reconciliation & Recovery",
-    "Polling & Snapshots",
+    "Ticket Data Integrity",
+    "Transaction Accuracy",
   ]);
   await expect(page.locator(".architecture-diagram")).toHaveCount(0);
   await expect(page.getByText(removedFooter)).toHaveCount(0);
 });
 
-test("opens a lesson from its shareable URL", async ({ page }) => {
+test("opens a canonical lesson from its shareable URL", async ({ page }) => {
   await page.goto("/?lesson=api-mapping");
 
   await expect(page.getByRole("tab", { name: "API Mapping" })).toHaveAttribute(
@@ -96,11 +98,9 @@ test("opens a lesson from its shareable URL", async ({ page }) => {
 test("uses visible challenge numbers in lesson order", async ({ page }) => {
   for (const [id, challenge] of [
     ["api-mapping", "01"],
-    ["webhooks", "02"],
-    ["ordering-conflicts", "03"],
-    ["money-refunds", "04"],
-    ["reconciliation-recovery", "05"],
-    ["polling-snapshots", "06"],
+    ["ordering-conflicts", "02"],
+    ["ticket-data-integrity", "03"],
+    ["transaction-accuracy", "04"],
   ]) {
     await page.goto(`/?lesson=${id}`);
     await expect(page.locator(".eyebrow")).toContainText(
@@ -116,18 +116,6 @@ for (const lesson of [
     scenarioText: /Map one proposed Posh order/,
   },
   {
-    id: "webhooks",
-    diagramName: /A proposed Posh event enters Prism once/,
-    scenarioText: /Receive a duplicate proposed Posh sale/,
-  },
-  {
-    id: "polling-snapshots",
-    diagramName: /Prism stages a three-page ticket report/,
-    scenarioText: /Hold a partial three-page ticket report/,
-    detailText:
-      /The provider adapter handles pagination, cursors, completion signals/,
-  },
-  {
     id: "ordering-conflicts",
     diagramName: /One Prism show record controls the accepted venue/,
     scenarioText: /Protect the confirmed Come and Take It Live show/,
@@ -135,20 +123,19 @@ for (const lesson of [
       /One Prism show record holds the accepted date, room, status, and version/,
   },
   {
-    id: "money-refunds",
-    diagramName:
-      /Prism separates a \$45.00 refund from a \$3.50 retained provider fee/,
-    scenarioText: /Apply a refund without hiding the provider fee/,
-    detailText:
-      /A customer receives a \$45.00 ticket refund, while a \$3.50 provider fee remains/,
+    id: "ticket-data-integrity",
+    diagramName: /Prism applies a proposed Posh sale once/,
+    scenarioText: /Keep one trustworthy sold count/,
+    detailText: /Idempotency means a retry has the same effect as one delivery/,
   },
   {
-    id: "reconciliation-recovery",
-    diagramName: /Prism compares the Come and Take It Productions offer/,
-    scenarioText: /Recover a Posh settlement check/,
+    id: "transaction-accuracy",
+    diagramName: /Prism keeps refund, fee, cost, and deal facts separate/,
+    scenarioText: /Close a settlement without hiding an exception/,
+    detailText: /A typed financial ledger stores each amount with its type/,
   },
 ]) {
-  test(`shows the ${lesson.id} provider scenario, diagram, and example`, async ({
+  test(`shows the ${lesson.id} scenario, diagram, and approaches`, async ({
     page,
   }) => {
     await page.goto(`/?lesson=${lesson.id}`);
@@ -168,40 +155,107 @@ for (const lesson of [
     if (lesson.detailText) {
       await expect(page.getByText(lesson.detailText)).toBeVisible();
     }
+    await expectNoDocumentOverflow(page);
   });
 }
 
-test("supports keyboard tab navigation", async ({ page }) => {
-  await page.goto("/");
+test("shows the complete ticket-data sequence", async ({ page }) => {
+  await page.goto("/?lesson=ticket-data-integrity");
 
-  const overview = page.getByRole("tab", { name: "Overview" });
-  await overview.focus();
-  await overview.press("ArrowRight");
-  await expect(page.getByRole("tab", { name: "API Mapping" })).toBeFocused();
-  await expect(page).toHaveURL(/lesson=api-mapping/);
-
-  const reconciliation = page.getByRole("tab", {
-    name: "Reconciliation & Recovery",
-  });
-  await reconciliation.focus();
-  await reconciliation.press("ArrowRight");
-  await expect(
-    page.getByRole("tab", { name: "Polling & Snapshots" }),
-  ).toBeFocused();
-  await expect(page).toHaveURL(/lesson=polling-snapshots/);
+  for (const label of [
+    "sale event arrives",
+    "apply once",
+    "duplicate retry",
+    "acknowledge, no second effect",
+    "poll report pages 1 + 2",
+    "page 3 fails",
+    "keep last trusted facts",
+    "retry page 3",
+    "publish complete snapshot",
+  ]) {
+    await expect(
+      page.locator("svg text").filter({ hasText: label }),
+    ).toBeVisible();
+  }
 });
 
-test("uses the lesson sequence in footer navigation", async ({ page }) => {
+test("shows the transaction accuracy recovery flow", async ({ page }) => {
+  await page.goto("/?lesson=transaction-accuracy");
+
+  for (const label of [
+    "refund −$45.00",
+    "retained fee +$3.50",
+    "unsupported expense $250.00",
+    "Review queue",
+    "Settlement checkpoint",
+  ]) {
+    await expect(
+      page.locator("svg text").filter({ hasText: label }),
+    ).toBeVisible();
+  }
+});
+
+test("resolves legacy links to canonical lessons", async ({ page }) => {
+  for (const [legacy, canonical, tab] of [
+    ["webhooks", "ticket-data-integrity", "Ticket Data Integrity"],
+    ["polling-snapshots", "ticket-data-integrity", "Ticket Data Integrity"],
+    ["money-refunds", "transaction-accuracy", "Transaction Accuracy"],
+    ["reconciliation-recovery", "transaction-accuracy", "Transaction Accuracy"],
+  ]) {
+    await page.goto(`/?lesson=${legacy}`);
+    await expect(page).toHaveURL(new RegExp(`lesson=${canonical}`));
+    await expect(page.getByRole("tab", { name: tab })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  }
+});
+
+test("uses the approved keyboard tab order", async ({ page }) => {
+  await page.goto("/");
+
+  const api = page.getByRole("tab", { name: "API Mapping" });
+  await api.focus();
+  await api.press("ArrowRight");
+  await expect(
+    page.getByRole("tab", { name: "Ordering & Conflicts" }),
+  ).toBeFocused();
+  await expect(page).toHaveURL(/lesson=ordering-conflicts/);
+
+  const ordering = page.getByRole("tab", { name: "Ordering & Conflicts" });
+  await ordering.press("ArrowRight");
+  await expect(
+    page.getByRole("tab", { name: "Ticket Data Integrity" }),
+  ).toBeFocused();
+  await expect(page).toHaveURL(/lesson=ticket-data-integrity/);
+});
+
+test("uses the approved footer order", async ({ page }) => {
   await page.goto("/?lesson=ordering-conflicts");
 
-  await expect(page.getByRole("button", { name: "← Webhooks" })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Money & Refunds →" }),
+    page.getByRole("button", { name: "← API Mapping" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Ticket Data Integrity →" }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Money & Refunds →" }).click();
-  await expect(page).toHaveURL(/lesson=money-refunds/);
+  await page.getByRole("button", { name: "Ticket Data Integrity →" }).click();
+  await expect(page).toHaveURL(/lesson=ticket-data-integrity/);
   await expect(
-    page.getByRole("button", { name: "Reconciliation & Recovery →" }),
+    page.getByRole("button", { name: "Transaction Accuracy →" }),
   ).toBeVisible();
+});
+
+test("keeps mobile diagrams inside a scrollable viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  for (const lesson of ["ticket-data-integrity", "transaction-accuracy"]) {
+    await page.goto(`/?lesson=${lesson}`);
+    await expectNoDocumentOverflow(page);
+    await expect(page.locator(".architecture-viewport")).toHaveAttribute(
+      "tabindex",
+      "0",
+    );
+  }
 });

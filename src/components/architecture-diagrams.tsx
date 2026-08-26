@@ -304,219 +304,6 @@ function ApiMappingDiagram({ caption }: { caption: string }) {
   );
 }
 
-function WebhookDiagram({ caption }: { caption: string }) {
-  const markerId = "webhooks-arrow";
-  const actors = [
-    [40, "Posh (proposed)"],
-    [285, "Webhook edge"],
-    [530, "Durable inbox"],
-    [775, "Worker"],
-  ] as const;
-
-  return (
-    <DiagramCanvas
-      caption={caption}
-      description="A proposed Posh onboarding event for the hypothetical Come and Take It Live show enters the Prism durable inbox. Prism processes it once, then exposes the sale to Come and Take It Productions actuals. The diagram treats webhook delivery as a design option, not a stated Posh capability."
-      height={590}
-      id="webhooks"
-    >
-      {actors.map(([x, title], index) => (
-        <g key={title}>
-          <Node
-            lines={[index === 0 ? "external" : "Prism component"]}
-            title={title}
-            tone={index === 2 ? "purple" : "default"}
-            width={185}
-            x={x}
-            y={35}
-          />
-          <path className="architecture-lifeline" d={`M${x + 92} 125 V545`} />
-        </g>
-      ))}
-      <Edge
-        d="M132 170 H377"
-        label="1 · proposed sale event"
-        labelX={185}
-        labelY={158}
-        markerId={markerId}
-      />
-      <Edge
-        d="M377 235 H622"
-        label="2 · verify + record"
-        labelX={420}
-        labelY={223}
-        markerId={markerId}
-      />
-      <Edge
-        d="M622 300 H867"
-        label="3 · process event"
-        labelX={670}
-        labelY={288}
-        markerId={markerId}
-      />
-      <Edge
-        d="M867 365 H622"
-        label="4 · mark complete"
-        labelX={680}
-        labelY={353}
-        markerId={markerId}
-        tone="green"
-      />
-      <Edge
-        d="M132 445 H377"
-        dashed
-        label="5 · retry same event"
-        labelX={185}
-        labelY={433}
-        markerId={markerId}
-        tone="red"
-      />
-      <Edge
-        d="M377 510 H132"
-        dashed
-        label="6 · acknowledge duplicate"
-        labelX={175}
-        labelY={498}
-        markerId={markerId}
-        tone="green"
-      />
-      <Node
-        lines={["sales + actuals", "one effect only"]}
-        title="Come and Take It Live"
-        tone="green"
-        width={205}
-        x={775}
-        y={445}
-      />
-    </DiagramCanvas>
-  );
-}
-
-function PollingDiagram({ caption }: { caption: string }) {
-  const markerId = "polling-snapshots-arrow";
-
-  return (
-    <DiagramCanvas
-      caption={caption}
-      description="For the hypothetical Come and Take It Live show, a three-page proposed Posh ticket report enters a provider adapter. The adapter returns normalized records and completeness metadata. Prism stages an incomplete candidate, preserves the last complete snapshot, retries the failed page or cursor, and publishes only after every page arrives and validation succeeds."
-      height={590}
-      id="polling-snapshots"
-    >
-      <Boundary
-        height={430}
-        label="Proposed Posh ticket report"
-        width={245}
-        x={20}
-        y={75}
-      />
-      <Node
-        lines={["records arrive"]}
-        title="Posh page 1"
-        width={195}
-        x={45}
-        y={125}
-      />
-      <Node
-        lines={["records arrive"]}
-        title="Posh page 2"
-        width={195}
-        x={45}
-        y={240}
-      />
-      <Node
-        lines={["fails · keep cursor"]}
-        title="Posh page 3"
-        tone="red"
-        width={195}
-        x={45}
-        y={355}
-      />
-      <Node
-        lines={["pagination · cursor", "rate limit · errors"]}
-        title="Provider adapter"
-        width={210}
-        x={315}
-        y={220}
-      />
-      <Store
-        detail="candidate + metadata"
-        title="Snapshot staging"
-        width={195}
-        x={570}
-        y={235}
-      />
-      <Decision cx={875} cy={285} lines={["complete and", "valid?"]} />
-      <Node
-        lines={["venue sales · promoter actuals", "safe for settlement"]}
-        title="Complete snapshot"
-        tone="green"
-        width={215}
-        x={755}
-        y={440}
-      />
-      <Node
-        lines={[
-          "keep last complete snapshot",
-          "mark stale · alert after limit",
-        ]}
-        title="Incomplete candidate"
-        tone="red"
-        width={235}
-        x={735}
-        y={70}
-      />
-      <Edge
-        d="M142 197 V240"
-        label="page 1"
-        labelX={150}
-        labelY={226}
-        markerId={markerId}
-      />
-      <Edge
-        d="M142 312 V355"
-        label="page 2"
-        labelX={150}
-        labelY={341}
-        markerId={markerId}
-      />
-      <Edge d="M240 398 C275 398 275 275 315 275" markerId={markerId} />
-      <Edge
-        d="M525 275 H570"
-        label="stage"
-        labelX={530}
-        labelY={260}
-        markerId={markerId}
-      />
-      <Edge d="M765 285 H797" markerId={markerId} />
-      <Edge
-        d="M875 339 V440"
-        label="yes · publish"
-        labelX={885}
-        labelY={390}
-        markerId={markerId}
-        tone="green"
-      />
-      <Edge
-        d="M875 231 V160"
-        label="no"
-        labelX={885}
-        labelY={210}
-        markerId={markerId}
-        tone="red"
-      />
-      <Edge
-        d="M735 125 C620 45 200 45 142 355"
-        dashed
-        label="retry failed page or cursor"
-        labelX={375}
-        labelY={53}
-        markerId={markerId}
-        tone="red"
-      />
-    </DiagramCanvas>
-  );
-}
-
 function OrderingDiagram({ caption }: { caption: string }) {
   const markerId = "ordering-conflicts-arrow";
 
@@ -622,195 +409,268 @@ function OrderingDiagram({ caption }: { caption: string }) {
   );
 }
 
-function MoneyDiagram({ caption }: { caption: string }) {
-  const markerId = "money-refunds-arrow";
+function TicketDataIntegrityDiagram({ caption }: { caption: string }) {
+  const markerId = "ticket-data-integrity-arrow";
+  const actors = [
+    [20, "Posh (proposed)", "provider"],
+    [215, "Provider adapter", "edge"],
+    [410, "Durable inbox + staging", "Prism store"],
+    [605, "Sync process", "Prism worker"],
+    [800, "Trusted ticket facts", "published Prism view"],
+  ] as const;
 
   return (
     <DiagramCanvas
       caption={caption}
-      description="For the hypothetical Come and Take It Live show, Prism receives a $45.00 ticket refund and a separate $3.50 retained provider fee. Prism records them as sourced ledger entries with venue costs, guarantee, and co-pro split. The settlement therefore shows each party what it owes or receives."
-      height={590}
-      id="money-refunds"
+      description="Sequence diagram. A proposed Posh sale reaches the provider adapter and durable inbox. Prism applies the first delivery once. A duplicate retry has no second effect. A later paged report returns pages one and two, then page three fails. Prism stages the incomplete report and keeps the last trusted ticket facts. After page three retries, Prism validates and publishes the complete report."
+      height={1100}
+      id="ticket-data-integrity"
     >
-      <Boundary
-        height={455}
-        label="Financial sources"
-        width={285}
-        x={20}
-        y={60}
-      />
-      <Node
-        lines={["ticket refund −$45.00", "retained fee +$3.50"]}
-        title="Provider report"
-        width={240}
-        x={42}
-        y={120}
-      />
-      <Node
-        lines={["venue costs · guarantee", "co-pro split"]}
-        title="Show terms"
-        width={240}
-        x={42}
-        y={335}
-      />
-      <Node
-        lines={["amount · owner · reason", "provider or deal source"]}
-        title="Classify sourced entries"
-        tone="purple"
-        width={355}
-        x={315}
-        y={240}
-      />
-      <Store
-        detail="revenue · fee · refund · cost"
-        title="Prism ledger"
-        width={220}
-        x={720}
-        y={240}
-      />
-      <Node
-        lines={["refund and fee stay separate", "calculate each party balance"]}
-        title="Show settlement"
-        tone="green"
-        width={235}
-        x={740}
-        y={105}
-      />
-      <Node
-        lines={["source totals · audit trail"]}
-        title="Reconciliation"
-        width={220}
-        x={745}
-        y={395}
-      />
-      {[176, 391].map((y) => (
-        <Edge
-          d={`M282 ${y} C295 ${y} 300 283 315 283`}
-          key={y}
-          markerId={markerId}
-        />
-      ))}
-      <Edge d="M670 283 H720" markerId={markerId} />
+      {actors.map(([x, title, detail], index) => {
+        const width = index === 2 ? 170 : 150;
+        const center = x + width / 2;
+        return (
+          <g key={title}>
+            <Node
+              lines={[detail]}
+              title={title}
+              tone={index === 2 ? "purple" : index === 4 ? "green" : "default"}
+              width={width}
+              x={x}
+              y={30}
+            />
+            <path
+              className="architecture-lifeline"
+              d={`M${center} 122 V1050`}
+            />
+          </g>
+        );
+      })}
       <Edge
-        d="M830 240 C830 190 790 175 740 175"
-        label="calculate"
-        labelX={830}
-        labelY={220}
+        d="M95 175 H290"
+        label="1 · sale event arrives"
+        labelX={125}
+        labelY={162}
+        markerId={markerId}
+      />
+      <Edge
+        d="M290 245 H495"
+        label="2 · store event ID"
+        labelX={325}
+        labelY={232}
+        markerId={markerId}
+      />
+      <Edge
+        d="M495 315 H680"
+        label="3 · first delivery"
+        labelX={530}
+        labelY={302}
+        markerId={markerId}
+      />
+      <Edge
+        d="M680 385 H875"
+        label="4 · apply once"
+        labelX={720}
+        labelY={372}
         markerId={markerId}
         tone="green"
       />
       <Edge
-        d="M830 320 C830 365 855 365 855 395"
-        label="compare"
-        labelX={840}
-        labelY={375}
+        d="M95 465 H290"
+        dashed
+        label="5 · duplicate retry"
+        labelX={125}
+        labelY={452}
         markerId={markerId}
+        tone="red"
+      />
+      <Edge
+        d="M290 535 H495"
+        dashed
+        label="6 · event already complete"
+        labelX={315}
+        labelY={522}
+        markerId={markerId}
+      />
+      <Edge
+        d="M495 605 H95"
+        dashed
+        label="7 · acknowledge, no second effect"
+        labelX={175}
+        labelY={592}
+        markerId={markerId}
+        tone="green"
+      />
+      <Edge
+        d="M95 685 H290"
+        label="8 · poll report pages 1 + 2"
+        labelX={120}
+        labelY={672}
+        markerId={markerId}
+      />
+      <Edge
+        d="M290 755 H495"
+        label="9 · stage partial report"
+        labelX={325}
+        labelY={742}
+        markerId={markerId}
+      />
+      <Edge
+        d="M95 825 H290"
+        label="10 · page 3 fails"
+        labelX={145}
+        labelY={812}
+        markerId={markerId}
+        tone="red"
+      />
+      <Edge
+        d="M495 895 H875"
+        dashed
+        label="11 · keep last trusted facts"
+        labelX={575}
+        labelY={882}
+        markerId={markerId}
+        tone="red"
+      />
+      <Edge
+        d="M95 965 H290"
+        dashed
+        label="12 · retry page 3"
+        labelX={140}
+        labelY={952}
+        markerId={markerId}
+      />
+      <Edge
+        d="M290 1025 H495"
+        label="13 · full report validates"
+        labelX={315}
+        labelY={1012}
+        markerId={markerId}
+        tone="green"
+      />
+      <Edge
+        d="M495 1065 H875"
+        label="14 · publish complete snapshot"
+        labelX={590}
+        labelY={1052}
+        markerId={markerId}
+        tone="green"
       />
     </DiagramCanvas>
   );
 }
 
-function ReconciliationDiagram({ caption }: { caption: string }) {
-  const markerId = "reconciliation-recovery-arrow";
+function TransactionAccuracyDiagram({ caption }: { caption: string }) {
+  const markerId = "transaction-accuracy-arrow";
 
   return (
     <DiagramCanvas
       caption={caption}
-      description="The Come and Take It Productions offer and the Come and Take It Live ticket actuals enter Prism reconciliation. DICE, Tixr, and proposed Posh onboarding data use the same close process. Matched facts close automatically, while differences enter review and resume from a checkpoint."
-      height={570}
-      id="reconciliation-recovery"
+      description="Ticket provider facts, Come and Take It Live venue costs, and Come and Take It Productions deal terms become typed Prism ledger entries. Reconciliation compares expected and actual balances. Matched entries produce final settlement. The unsupported $250 production expense enters review, and Prism resumes from the last verified checkpoint after evidence arrives."
+      height={650}
+      id="transaction-accuracy"
     >
-      <Node
-        lines={["offer · guarantee · split"]}
-        title="Come and Take It Productions"
-        width={260}
+      <Boundary
+        height={510}
+        label="Sourced show facts"
+        width={250}
         x={20}
-        y={105}
+        y={70}
       />
       <Node
-        lines={["DICE · Tixr · Posh", "ticket actuals + payments"]}
+        lines={["refund −$45.00", "retained fee +$3.50"]}
+        title="Provider ticket facts"
+        width={210}
+        x={40}
+        y={125}
+      />
+      <Node
+        lines={["room, staffing, and show costs"]}
         title="Come and Take It Live"
-        width={230}
-        x={30}
-        y={350}
+        width={210}
+        x={40}
+        y={285}
       />
       <Node
-        lines={["normalize scope", "compare typed totals"]}
-        title="Reconciliation"
-        tone="purple"
-        width={220}
-        x={335}
-        y={230}
+        lines={["guarantee · co-pro split", "unsupported expense $250.00"]}
+        title="Come and Take It Productions"
+        width={210}
+        x={40}
+        y={425}
       />
-      <Decision cx={690} cy={280} lines={["totals", "match?"]} />
+      <Node
+        lines={["type · amount · owner", "reason · provider or deal source"]}
+        title="Typed Prism ledger"
+        tone="purple"
+        width={255}
+        x={315}
+        y={255}
+      />
+      <Node
+        lines={["compare expected and", "actual balances"]}
+        title="Reconciliation"
+        width={190}
+        x={610}
+        y={255}
+      />
+      <Decision cx={875} cy={305} lines={["matched", "facts?"]} />
       <Node
         lines={["approved balance", "complete audit trail"]}
         title="Final settlement"
         tone="green"
-        width={185}
-        x={790}
+        width={175}
+        x={805}
         y={90}
       />
       <Node
-        lines={["explain difference", "assign owner"]}
+        lines={["$250 expense only", "attach evidence"]}
         title="Review queue"
         tone="red"
-        width={185}
-        x={790}
-        y={300}
+        width={175}
+        x={805}
+        y={430}
       />
       <Store
-        detail="last safe step"
-        title="Recovery checkpoint"
-        width={185}
-        x={580}
-        y={445}
+        detail="last verified step"
+        title="Settlement checkpoint"
+        width={230}
+        x={480}
+        y={510}
       />
+      {[168, 328, 468].map((y) => (
+        <Edge
+          d={`M250 ${y} C278 ${y} 290 305 315 305`}
+          key={y}
+          markerId={markerId}
+        />
+      ))}
+      <Edge d="M570 305 H610" markerId={markerId} />
+      <Edge d="M800 305 H797" markerId={markerId} />
       <Edge
-        d="M280 148 C295 148 295 255 335 265"
-        label="expected"
-        labelX={290}
-        labelY={145}
-        markerId={markerId}
-      />
-      <Edge
-        d="M260 393 C295 393 295 315 335 300"
-        label="actual"
-        labelX={270}
-        labelY={410}
-        markerId={markerId}
-      />
-      <Edge d="M555 280 H612" markerId={markerId} />
-      <Edge
-        d="M690 226 C690 150 745 133 790 133"
-        label="yes"
-        labelX={700}
-        labelY={165}
+        d="M875 251 C875 184 870 170 805 170"
         markerId={markerId}
         tone="green"
       />
       <Edge
-        d="M690 334 C690 355 745 343 790 343"
-        label="no"
-        labelX={710}
-        labelY={330}
+        d="M875 359 C875 400 875 410 875 430"
         markerId={markerId}
         tone="red"
       />
       <Edge
-        d="M882 390 C882 505 790 505 765 482"
+        d="M892 512 C892 585 735 590 710 565"
         dashed
-        label="resume"
-        labelX={825}
-        labelY={515}
+        label="evidence approved"
+        labelX={780}
+        labelY={594}
         markerId={markerId}
+        tone="green"
       />
       <Edge
-        d="M580 482 C500 482 465 350 465 320"
+        d="M480 555 C420 555 390 430 440 355"
         dashed
-        label="retry safely"
-        labelX={475}
-        labelY={455}
+        label="resume from checkpoint"
+        labelX={350}
+        labelY={500}
         markerId={markerId}
       />
     </DiagramCanvas>
@@ -827,16 +687,12 @@ export function ArchitectureDiagram({
   switch (lessonId) {
     case "api-mapping":
       return <ApiMappingDiagram caption={caption} />;
-    case "webhooks":
-      return <WebhookDiagram caption={caption} />;
-    case "polling-snapshots":
-      return <PollingDiagram caption={caption} />;
     case "ordering-conflicts":
       return <OrderingDiagram caption={caption} />;
-    case "money-refunds":
-      return <MoneyDiagram caption={caption} />;
-    case "reconciliation-recovery":
-      return <ReconciliationDiagram caption={caption} />;
+    case "ticket-data-integrity":
+      return <TicketDataIntegrityDiagram caption={caption} />;
+    case "transaction-accuracy":
+      return <TransactionAccuracyDiagram caption={caption} />;
   }
 
   const unhandledLesson: never = lessonId;
