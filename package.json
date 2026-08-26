@@ -1,30 +1,24 @@
 {
   "name": "prism-integration-lab",
+  "version": "1.0.0",
   "private": true,
   "packageManager": "bun@1.3.11",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "build": "bun run --cwd apps/web build",
-    "db:migrate": "bun packages/database/scripts/migrate.ts",
-    "db:seed": "bun packages/database/scripts/seed.ts",
+    "build": "next build",
+    "dev": "next dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "bun test --path-ignore-patterns='**/tests/e2e/**'",
     "test:e2e": "playwright test",
-    "typecheck": "bun run typegen && bun run typecheck:workspace",
-    "typecheck:workspace": "bun run --cwd apps/api typecheck && bun run --cwd apps/web typecheck && tsc --noEmit -p packages/contracts && tsc --noEmit -p packages/database && tsc --noEmit -p packages/domain && tsc --noEmit -p packages/providers && tsc --noEmit -p apps/worker",
-    "typegen": "bun run --cwd apps/web typegen",
-    "verify": "bun run format:check && bun run typecheck && bun run test && bun run build && bun run test:e2e"
+    "typecheck": "next typegen && tsc --noEmit",
+    "verify": "bun run format:check && bun run typecheck && bun run build && bun run test:e2e"
   },
   "dependencies": {
-    "@prism/database": "workspace:*"
+    "next": "16.3.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
-    "@types/bun": "1.4.0",
     "@types/node": "24.13.3",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",

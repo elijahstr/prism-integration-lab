@@ -1,54 +1,48 @@
 # Prism Integration Lab
 
-## Live demo
+An unofficial portfolio prototype that explains ticket-provider architecture for a venue and promoter workflow.
 
-Provisioning has not started. The future public service will use the Render
-`onrender.com` address. Wait for the first page before you start the demo.
-Free Render web services sleep after inactivity. Open the page one minute
-before a presentation to warm the process.
+The scenario uses Come and Take It Live in Austin and Come and Take It Productions. The provider and transport examples are hypothetical.
 
-## Five-minute walkthrough
+Business context comes from the [Prism success story](https://prism.fm/success-stories/come-and-take-it-productions/), [Prism venue and promoter overview](https://prism.fm/why-prism-for-venues-and-promoters/), and [Come and Take It Live](https://www.comeandtakeitlive.com/).
 
-1. Open the Integration Lab page.
-2. Run Duplicate webhook to show one immutable effect.
-3. Run Provider outage to show preserved work and retry evidence.
-4. Run Uncertain event match to show the human-review boundary.
-5. Run Incomplete snapshot to show safe staging.
-6. Run Provider change to show the 400 plus 600 provider-scoped total.
+## What is included
 
-Each browser receives a separate temporary data scope. The trace shows the
-input, processing decision, normalized result, database effect, and audit
-evidence for its selected scenario.
+- Seven topic tabs on one page
+- Architecture diagrams for each topic
+- Clear approach comparisons with pros, cons, and technical debt
+- Six deterministic browser-only examples
+- A responsive Poppins and Prism-purple interface
+
+## Architecture
+
+This repository contains one static Next.js application. It has no API, database, worker, queue, secrets, or runtime service.
+
+Next.js exports the site to `out/`. Vercel serves those files from its CDN.
 
 ## Local use
 
-Create `.env` from `.env.example`. Use local values only. Do not commit the
-file or production secrets.
-
-```sh
-docker compose up -d postgres redis
-bun run db:migrate
-bun run db:seed
-bun run verify
-bun run build
-bun run test:e2e
+```bash
+bun install
+bun run dev
 ```
 
-The public entry point runs idempotent migrations and baseline seeding before
-it accepts traffic. Start it locally with `bun run scripts/start-public.ts`.
-Use `/health` for process liveness. Use `/ready` to check PostgreSQL and Redis.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Render provisioning
+## Checks
 
-The Blueprint declares one free Node web service. Set these values in Render
-before the first deployment: `DATABASE_URL`, `REDIS_URL`, `LAB_TOKEN_PEPPER`,
-and `PROVIDER_KEY_MASTER_SECRET`. The Blueprint does not store their values.
+```bash
+bun run verify
+```
 
-The public process serves the static dashboard and API from one origin. It
-also runs one BullMQ worker. It catches up on outbox and expiry work at startup
-and every 15 seconds. The worker uses a 30-second idle delay to reduce Redis
-commands.
+This command checks formatting, types, the production export, all tabs, keyboard navigation, the venue image, and every example.
 
-This service is a demonstration. Free service sleep, shared-process failure,
-and managed-service quota limits reduce availability. The durable PostgreSQL
-outbox prevents accepted work from depending only on Redis publication.
+## Deploy to Vercel
+
+Import this GitHub repository as a Next.js project. Use the default build settings.
+
+The deployment needs no environment variables or other Vercel services.
+
+## Disclaimer
+
+This project is not an official Prism, Come and Take It Live, or Come and Take It Productions product.

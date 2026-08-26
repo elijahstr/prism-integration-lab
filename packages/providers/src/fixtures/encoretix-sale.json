@@ -1,9 +1,0 @@
-{
-  "effects": [
-    {
-      "amountDeltaCents": 5000,
-      "kind": "sale",
-      "ticketDelta": 2
-    }
-  ]
-}
