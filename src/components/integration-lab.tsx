@@ -71,7 +71,7 @@ function Example({ lesson }: { lesson: Lesson }) {
   return (
     <section className="example" aria-labelledby="example-title">
       <div>
-        <p className="section-kicker">Browser-only example</p>
+        <p className="section-kicker">Worked scenario</p>
         <h2 id="example-title">{lesson.example.title}</h2>
         <p>{lesson.example.setup}</p>
       </div>
