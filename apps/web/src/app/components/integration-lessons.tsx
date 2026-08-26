@@ -5,6 +5,7 @@ import { useRef } from "react";
 import type { ScenarioId, ScenarioRunDto } from "@prism/contracts";
 
 import {
+  type IntegrationLesson,
   type LessonId,
   INTEGRATION_LESSONS,
   SCENARIOS_BY_ID,
@@ -33,7 +34,7 @@ export function IntegrationLessons({
   status,
 }: IntegrationLessonsProps) {
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const activeLesson = INTEGRATION_LESSONS.find(
+  const activeLesson: IntegrationLesson | undefined = INTEGRATION_LESSONS.find(
     ({ id }) => id === activeLessonId,
   );
   const sourceLesson = run
@@ -137,6 +138,23 @@ export function IntegrationLessons({
             lessonId={activeLesson.id}
           />
         </section>
+
+        {activeLesson.kind === "challenge" && activeLesson.discussionGroups ? (
+          <section data-lesson-section="discussion">
+            <div className="lesson-discussion-grid">
+              {activeLesson.discussionGroups.map((group) => (
+                <section key={group.heading}>
+                  <h3>{group.heading}</h3>
+                  <ul>
+                    {group.points.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {activeLesson.kind === "challenge" ? (
           <section data-lesson-section="approaches">

@@ -38,6 +38,25 @@ test("teaches API mapping before an action and keeps the full mapping vocabulary
   await expect(panel).toContainText("canonical model");
   await expect(panel).toContainText("immutable raw-payload retention");
   await expect(panel.locator(".lesson-diagram")).toBeVisible();
+  const discussion = panel.locator(".lesson-discussion-grid");
+  const discussionGroups = discussion.locator(":scope > section");
+  await expect(discussion).toBeVisible();
+  await expect(discussionGroups).toHaveCount(3);
+  await expect(discussionGroups.getByRole("heading")).toHaveText([
+    "Identity and status",
+    "Money and time",
+    "Change and proof",
+  ]);
+  await expect(discussionGroups.nth(0)).toContainText(
+    "stable provider and external IDs",
+  );
+  await expect(discussionGroups.nth(0)).toContainText("unknown values");
+  await expect(discussionGroups.nth(1)).toContainText("integer cents");
+  await expect(discussionGroups.nth(1)).toContainText("source-zone retention");
+  await expect(discussionGroups.nth(2)).toContainText("capability records");
+  await expect(discussionGroups.nth(2)).toContainText(
+    "immutable raw-payload retention",
+  );
   await expect(panel.locator(".lesson-recommendation-label")).toHaveText(
     "Recommended",
   );

@@ -32,6 +32,11 @@ export type LessonApproach = {
   recommended: boolean;
 };
 
+export type LessonDiscussionGroup = {
+  heading: string;
+  points: readonly string[];
+};
+
 type LessonBase = {
   diagram: LessonDiagram;
   id: LessonId;
@@ -52,6 +57,11 @@ export type ChallengeLesson = LessonBase & {
   challenge: string;
   cost: string;
   debtPath: string;
+  discussionGroups?: readonly [
+    LessonDiscussionGroup,
+    LessonDiscussionGroup,
+    LessonDiscussionGroup,
+  ];
   failurePrevented: string;
   kind: "challenge";
 };
@@ -204,7 +214,7 @@ export const INTEGRATION_LESSONS = [
       },
     ],
     challenge:
-      "The challenge is to make three fictional shapes usable without treating them as the same provider contract. The canonical model uses provider adapters, preserves stable provider and external IDs and unknown values, stores integer cents and UTC with source-zone retention, accepts optional fields and capability records, tracks mapping versions, and uses immutable raw-payload retention.",
+      "The challenge is to make three fictional shapes usable without treating them as the same provider contract. A canonical model keeps provider adapters at the boundary.",
     cost: "The recommended cost is a durable mapping registry.",
     debtPath: "Its debt path is capability and mapping-version migration work.",
     diagram: {
@@ -239,6 +249,31 @@ export const INTEGRATION_LESSONS = [
         },
       ],
     },
+    discussionGroups: [
+      {
+        heading: "Identity and status",
+        points: [
+          "Use stable provider and external IDs to keep facts distinct.",
+          "Enum maps retain unknown values.",
+          "Optional fields remain explicit.",
+        ],
+      },
+      {
+        heading: "Money and time",
+        points: [
+          "Use integer cents to keep arithmetic exact.",
+          "UTC keeps source-zone retention available for audit.",
+        ],
+      },
+      {
+        heading: "Change and proof",
+        points: [
+          "Use capability records to make provider limits explicit.",
+          "Mapping versions support controlled migration.",
+          "Use immutable raw-payload retention to preserve evidence.",
+        ],
+      },
+    ],
     failurePrevented:
       "It prevents a provider-specific field or unknown enum from silently changing Prism financial facts.",
     id: "api-mapping",

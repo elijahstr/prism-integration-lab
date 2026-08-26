@@ -648,6 +648,28 @@ dd {
 .lesson-diagram-mobile {
   display: none;
 }
+.lesson-discussion-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.lesson-discussion-grid > section {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 0;
+  padding: 14px;
+}
+.lesson-discussion-grid h3 {
+  margin-bottom: 8px;
+}
+.lesson-discussion-grid ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.lesson-discussion-grid li + li {
+  margin-top: 6px;
+}
 .lesson-approach-grid {
   display: grid;
   gap: 14px;
@@ -838,10 +860,12 @@ dd {
     gap: 4px;
   }
   .lesson-approach-grid,
+  .lesson-discussion-grid,
   .lesson-tradeoff {
     grid-template-columns: 1fr;
   }
   .lesson-approach-grid > div,
+  .lesson-discussion-grid > section,
   .lesson-tradeoff > div,
   .scenario-list,
   .scenario {
