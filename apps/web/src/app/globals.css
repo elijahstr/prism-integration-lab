@@ -1,35 +1,53 @@
-:root {
+:root,
+:root[data-theme="dark"],
+:root[data-theme="light"] {
   color-scheme: light;
-  --accent: #5b35c9;
-  --accent-deep: #3f218f;
-  --accent-pale: #f0ecff;
+  --accent: #6d28d9;
+  --accent-deep: #35135f;
+  --accent-pale: #f3eeff;
   --border: #dfdee5;
   --ink: #22212a;
   --muted: #66646f;
   --panel: #ffffff;
   --page: #f8f8fa;
   --rail: #f1f0f4;
+  --lesson-plum: #2b164f;
+  --lesson-lavender: #eee7ff;
+  --lesson-recommendation-bg: #edf9f1;
+  --lesson-debt-bg: #fff5dc;
+  --lesson-failure-bg: #fff0ef;
   --success-bg: #eaf5ef;
   --success-ink: #17633b;
   --warning-bg: #fff5dc;
   --warning-ink: #7b4d00;
   --danger-bg: #fff0ef;
   --danger-ink: #a63e35;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    Avenir Next,
+    Avenir,
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: light;
-    --accent: #5b35c9;
-    --accent-deep: #3f218f;
-    --accent-pale: #f0ecff;
+    --accent: #6d28d9;
+    --accent-deep: #35135f;
+    --accent-pale: #f3eeff;
     --border: #dfdee5;
     --ink: #22212a;
     --muted: #66646f;
     --panel: #ffffff;
     --page: #f8f8fa;
     --rail: #f1f0f4;
+    --lesson-plum: #2b164f;
+    --lesson-lavender: #eee7ff;
+    --lesson-recommendation-bg: #edf9f1;
+    --lesson-debt-bg: #fff5dc;
+    --lesson-failure-bg: #fff0ef;
     --success-bg: #eaf5ef;
     --success-ink: #17633b;
     --warning-bg: #fff5dc;
@@ -83,7 +101,7 @@ button:disabled {
 button:focus-visible,
 a:focus-visible,
 select:focus-visible {
-  outline: 3px solid #3f218f;
+  outline: 3px solid var(--accent-deep);
   outline-offset: 2px;
 }
 h1,
@@ -535,6 +553,172 @@ dd {
   width: 1px;
 }
 
+.integration-lessons {
+  display: grid;
+  gap: 20px;
+}
+.integration-lessons [role="tabpanel"] {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  gap: 26px;
+  min-width: 0;
+  padding: clamp(18px, 3vw, 28px);
+}
+.integration-lessons [role="tabpanel"] > section {
+  min-width: 0;
+}
+.integration-lessons h2,
+.integration-lessons h3 {
+  color: var(--lesson-plum);
+}
+.lesson-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lesson-tabs [role="tab"] {
+  background: #fff;
+  border-color: var(--border);
+  color: var(--ink);
+}
+.lesson-tabs [role="tab"]:hover {
+  background: var(--accent-pale);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+.lesson-tabs [role="tab"][aria-selected="true"] {
+  background: var(--lesson-lavender);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+.lesson-tab:focus-visible,
+.lesson-tabs [role="tab"]:focus-visible {
+  outline: 3px solid var(--accent-deep);
+  outline-offset: 3px;
+}
+.lesson-diagram {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  margin: 20px 0;
+  min-width: 0;
+  padding: 18px;
+}
+.lesson-diagram figcaption {
+  color: var(--lesson-plum);
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+.lesson-diagram > svg {
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+.lesson-diagram-edge line {
+  stroke: var(--accent-deep);
+  stroke-width: 2;
+}
+.lesson-diagram-edge path {
+  fill: var(--accent-deep);
+}
+.lesson-diagram-edge text {
+  fill: var(--muted);
+  font-size: 13px;
+}
+.lesson-diagram-node rect {
+  fill: #fff;
+  stroke: var(--border);
+  stroke-width: 2;
+}
+.lesson-diagram-node-accent rect {
+  fill: var(--lesson-lavender);
+  stroke: var(--accent);
+}
+.lesson-diagram-node-label {
+  fill: var(--lesson-plum);
+  font-size: 15px;
+  font-weight: 800;
+}
+.lesson-diagram-node-detail {
+  fill: var(--muted);
+  font-size: 12px;
+}
+.lesson-diagram-mobile {
+  display: none;
+}
+.lesson-approach-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.lesson-approach-grid > div {
+  min-width: 0;
+}
+.lesson-approach {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  min-width: 0;
+  padding: 18px;
+}
+.lesson-approach h4 {
+  color: var(--lesson-plum);
+  font-size: 0.78rem;
+  margin: 16px 0 6px;
+}
+.lesson-approach p,
+.lesson-approach ul {
+  margin-bottom: 0;
+}
+.lesson-recommendation-label {
+  color: var(--success-ink);
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+.lesson-approach.recommended {
+  background: var(--lesson-recommendation-bg);
+  border-color: #7ac89a;
+}
+.lesson-tradeoff {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.lesson-tradeoff > div {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 0;
+  padding: 14px;
+}
+.lesson-tradeoff dt {
+  color: var(--lesson-plum);
+  font-weight: 800;
+}
+.lesson-tradeoff dd {
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+.lesson-debt {
+  background: var(--lesson-debt-bg);
+  border-color: #f0d290;
+}
+.lesson-debt dt {
+  color: var(--warning-ink);
+}
+.lesson-debt dd {
+  overflow-wrap: anywhere;
+}
+.lesson-prevention {
+  background: var(--lesson-failure-bg);
+  border-color: #f1c0bc;
+}
+.lesson-prevention dt {
+  color: var(--danger-ink);
+}
+
 @media (max-width: 920px) {
   .report-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -603,6 +787,65 @@ dd {
   .split-grid,
   .story-grid {
     grid-template-columns: 1fr;
+  }
+  .lesson-tabs {
+    flex-direction: column;
+  }
+  .lesson-tabs [role="tab"] {
+    width: 100%;
+  }
+  .lesson-diagram > svg {
+    display: none;
+  }
+  .lesson-diagram-mobile {
+    display: block;
+  }
+  .lesson-diagram-mobile ol,
+  .lesson-diagram-mobile-edges {
+    display: grid;
+    gap: 10px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .lesson-diagram-mobile-node,
+  .lesson-diagram-mobile-edges li {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    min-width: 0;
+    padding: 12px;
+  }
+  .lesson-diagram-mobile-node {
+    display: grid;
+    gap: 3px;
+  }
+  .lesson-diagram-mobile-node strong {
+    color: var(--lesson-plum);
+  }
+  .lesson-diagram-mobile-node span,
+  .lesson-diagram-mobile-edges li {
+    overflow-wrap: anywhere;
+  }
+  .lesson-diagram-mobile-node.lesson-diagram-node-accent {
+    background: var(--lesson-lavender);
+    border-color: var(--accent);
+  }
+  .lesson-diagram-mobile-edges {
+    margin-top: 12px;
+  }
+  .lesson-diagram-mobile-edges li {
+    display: grid;
+    gap: 4px;
+  }
+  .lesson-approach-grid,
+  .lesson-tradeoff {
+    grid-template-columns: 1fr;
+  }
+  .lesson-approach-grid > div,
+  .lesson-tradeoff > div,
+  .scenario-list,
+  .scenario {
+    min-width: 0;
   }
   .story-grid .panel {
     min-height: auto;
