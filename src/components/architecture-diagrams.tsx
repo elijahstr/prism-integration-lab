@@ -644,10 +644,10 @@ function TransactionAccuracyDiagram({ caption }: { caption: string }) {
         y={255}
       />
       <Node
-        lines={["compare expected and", "actual balances"]}
+        lines={["expected vs actual", "balances"]}
         title="Reconciliation"
-        width={180}
-        x={630}
+        width={155}
+        x={615}
         y={255}
       />
       <Decision cx={870} cy={305} lines={["matched", "facts?"]} />
@@ -681,8 +681,8 @@ function TransactionAccuracyDiagram({ caption }: { caption: string }) {
           markerId={markerId}
         />
       ))}
-      <Edge d="M595 305 H630" markerId={markerId} />
-      <Edge d="M810 305 H792" markerId={markerId} />
+      <Edge d="M595 305 H615" markerId={markerId} />
+      <Edge d="M770 305 H792" markerId={markerId} />
       <Edge
         d="M870 251 C870 184 865 170 790 170"
         markerId={markerId}
