@@ -6,7 +6,7 @@ import type {
 function ApproachCard({ approach }: { approach: LessonApproach }) {
   return (
     <article
-      className={`lesson-approach${approach.recommended ? " lesson-approach-recommended" : ""}`}
+      className={`lesson-approach${approach.recommended ? " recommended" : ""}`}
       data-approach={approach.id}
     >
       <h3>{approach.label}</h3>
@@ -40,7 +40,7 @@ export function LessonApproachCards({ lesson }: { lesson: ChallengeLesson }) {
         {lesson.approaches.map((approach) => (
           <div key={approach.id}>
             {approach.recommended ? (
-              <p className="lesson-recommended-label">Recommended</p>
+              <p className="lesson-recommendation-label">Recommended</p>
             ) : null}
             <ApproachCard approach={approach} />
           </div>

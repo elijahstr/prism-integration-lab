@@ -27,6 +27,9 @@ describe("IntegrationLessons", () => {
     expect(html).toContain("Recommended");
     expect(html).toContain("Technical debt path");
     expect(html).toContain("Failure prevented");
+    expect(html).toContain('class="lesson-approach recommended"');
+    expect(html).toContain('class="lesson-recommendation-label"');
+    expect(html).toContain('class="lesson-diagram-mobile"');
     expect((html.match(/data-approach-kind="pro"/g) ?? [])).toHaveLength(6);
     expect((html.match(/data-approach-kind="con"/g) ?? [])).toHaveLength(6);
     expect(html.indexOf("Recommended")).toBeLessThan(

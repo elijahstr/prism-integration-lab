@@ -80,6 +80,35 @@ export function LessonDiagram({ diagram, lessonId }: LessonDiagramProps) {
           </g>
         ))}
       </svg>
+      <div className="lesson-diagram-mobile">
+        <ol>
+          {diagram.nodes.map((node) => (
+            <li
+              className={`lesson-diagram-mobile-node${node.tone === "accent" ? " lesson-diagram-node-accent" : ""}`}
+              key={node.id}
+            >
+              <strong>{node.label}</strong>
+              <span>{node.detail}</span>
+            </li>
+          ))}
+        </ol>
+        <ul className="lesson-diagram-mobile-edges">
+          {diagram.edges.map((edge) => {
+            const from = nodesById.get(edge.from);
+            const to = nodesById.get(edge.to);
+
+            if (!from || !to) return null;
+
+            return (
+              <li key={`${edge.from}-${edge.to}`}>
+                <span>{from.label}</span>
+                {edge.label ? <span>{edge.label}</span> : null}
+                <span>{to.label}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </figure>
   );
 }
