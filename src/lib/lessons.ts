@@ -25,6 +25,12 @@ export type Lesson = {
   intro: string;
   context: string;
   diagramCaption: string | null;
+  callout?: {
+    placement: "after-approaches" | "bottom";
+    label: string;
+    title: string;
+    body: string;
+  };
   approaches?: readonly Approach[];
   example?: {
     title: string;
@@ -57,6 +63,12 @@ const LESSONS_BY_ID: readonly Lesson[] = [
       "Prism needs a canonical model. A canonical model is Prism’s stable internal record for a show, a ticket sale, and its money components. It lets Come and Take It Productions use one sales report and settlement process, even when provider fields differ.",
     diagramCaption:
       "Provider adapters map the Come and Take It Live show into one Prism record for the Come and Take It Productions deal.",
+    callout: {
+      placement: "bottom",
+      label: "Change monitoring",
+      title: "Watch provider changes before they become integration failures",
+      body: "Ticket-provider relationships and engineering contacts should remain the first line of communication. As a backstop, Prism could use an AI-assisted monitor to review provider changelogs and integration documentation, then alert the team when a field, endpoint, or behavior changes. Engineering should still verify each alert before a mapping is updated.",
+    },
     approaches: [
       {
         name: "Canonical model + adapters",
@@ -120,6 +132,12 @@ const LESSONS_BY_ID: readonly Lesson[] = [
       "An avail is a date or room that can accept a show. A hold reserves that avail while the deal develops. Prism checks each update against the source-of-truth record. Stale, conflicting, or invalid updates go to review with their evidence.",
     diagramCaption:
       "One Prism show record controls the accepted venue, promoter, calendar, and ticket-provider state.",
+    callout: {
+      placement: "after-approaches",
+      label: "Open integration question",
+      title: "Does Prism have write access to ticket providers?",
+      body: "If Prism creates or changes a show, can it publish that update to DICE, Tixr, and a proposed Posh integration, or are those connections read-only? If they are read-only, venue and promoter teams may still need to create and update each provider event by hand. That boundary determines the source-of-truth workflow, conflict rules, and operational ownership.",
+    },
     approaches: [
       {
         name: "One source of truth with versions",

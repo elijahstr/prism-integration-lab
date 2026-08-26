@@ -538,6 +538,38 @@ main {
   margin: 0;
 }
 
+.lesson-callout {
+  background: var(--amber-soft);
+  border: 1px solid #e4c77f;
+  border-radius: 14px;
+  margin-top: clamp(32px, 5vw, 58px);
+  padding: clamp(24px, 4vw, 38px);
+}
+
+.lesson-callout > p:first-child {
+  color: #8a5700;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  margin: 0 0 9px;
+  text-transform: uppercase;
+}
+
+.lesson-callout h2 {
+  color: var(--purple-dark);
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.lesson-callout > p:last-child {
+  color: #62533c;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  margin: 14px 0 0;
+  max-width: 980px;
+}
+
 footer {
   align-items: center;
   border-top: 1px solid var(--line);

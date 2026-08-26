@@ -104,6 +104,22 @@ function Example({ lesson }: { lesson: Lesson }) {
   );
 }
 
+function LessonCallout({ lesson }: { lesson: Lesson }) {
+  if (!lesson.callout) return null;
+
+  return (
+    <aside
+      aria-labelledby={`callout-${lesson.id}`}
+      className="lesson-callout"
+      data-callout-placement={lesson.callout.placement}
+    >
+      <p>{lesson.callout.label}</p>
+      <h2 id={`callout-${lesson.id}`}>{lesson.callout.title}</h2>
+      <p>{lesson.callout.body}</p>
+    </aside>
+  );
+}
+
 export function IntegrationLab() {
   const [activeId, setActiveId] = useState<LessonId>("overview");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -215,7 +231,13 @@ export function IntegrationLab() {
           />
         ) : null}
         <Approaches lesson={lesson} />
+        {lesson.callout?.placement === "after-approaches" ? (
+          <LessonCallout lesson={lesson} />
+        ) : null}
         <Example lesson={lesson} />
+        {lesson.callout?.placement === "bottom" ? (
+          <LessonCallout lesson={lesson} />
+        ) : null}
       </article>
 
       <footer>

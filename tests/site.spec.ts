@@ -95,6 +95,38 @@ test("opens a canonical lesson from its shareable URL", async ({ page }) => {
   await expect(page.getByText("Technical debt")).toHaveCount(3);
 });
 
+test("shows the API change-monitoring note at the bottom", async ({ page }) => {
+  await page.goto("/?lesson=api-mapping");
+
+  const callout = page.locator('[data-callout-placement="bottom"]');
+  await expect(callout).toContainText("Change monitoring");
+  await expect(callout).toContainText(
+    "Watch provider changes before they become integration failures",
+  );
+  await expect(callout).toContainText("AI-assisted monitor");
+  await expect(page.locator(".example + .lesson-callout")).toHaveAttribute(
+    "data-callout-placement",
+    "bottom",
+  );
+});
+
+test("shows the provider write-access question after ordering approaches", async ({
+  page,
+}) => {
+  await page.goto("/?lesson=ordering-conflicts");
+
+  const callout = page.locator('[data-callout-placement="after-approaches"]');
+  await expect(callout).toContainText("Open integration question");
+  await expect(callout).toContainText(
+    "Does Prism have write access to ticket providers?",
+  );
+  await expect(callout).toContainText("create and update each provider event");
+  await expect(page.locator(".approaches + .lesson-callout")).toHaveAttribute(
+    "data-callout-placement",
+    "after-approaches",
+  );
+});
+
 test("uses visible challenge numbers in lesson order", async ({ page }) => {
   for (const [id, challenge] of [
     ["api-mapping", "01"],
