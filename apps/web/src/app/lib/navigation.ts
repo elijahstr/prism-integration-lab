@@ -73,3 +73,13 @@ export function withLesson(
 ): DashboardRouteState {
   return { ...state, lesson };
 }
+
+export function requiresDashboardSessionReload(
+  current: DashboardRouteState,
+  next: DashboardRouteState,
+): boolean {
+  return (
+    current.organizationSlug !== next.organizationSlug ||
+    current.runId !== next.runId
+  );
+}

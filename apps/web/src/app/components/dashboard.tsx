@@ -52,10 +52,16 @@ import {
   DashboardLoadCoordinator,
 } from "../lib/dashboard-load";
 import {
+  type LessonId,
+  scenarioTitle,
+} from "../lib/integration-lessons";
+import {
   dashboardHref,
   dashboardLocation,
+  requiresDashboardSessionReload,
   switchOrganization,
   type DashboardRouteState,
+  withLesson,
   withScenarioRun,
 } from "../lib/navigation";
 import {
@@ -64,6 +70,7 @@ import {
   unavailableSessionMessage,
 } from "../lib/ui-state";
 import { DashboardShell, type DashboardPageName } from "./dashboard-shell";
+import { IntegrationLessons } from "./integration-lessons";
 
 type DashboardData = {
   messages: MessageDto[];
@@ -89,53 +96,6 @@ const defaultRouteState: DashboardRouteState = {
   organizationSlug: organizations[0].slug,
   runId: null,
 };
-
-const scenarios: Array<{
-  description: string;
-  id: ScenarioId;
-  title: string;
-}> = [
-  {
-    description:
-      "A second webhook delivery is acknowledged but does not duplicate sales.",
-    id: "duplicate_webhook",
-    title: "Duplicate webhook",
-  },
-  {
-    description:
-      "An older immutable sale arrives after a newer sale and still applies once.",
-    id: "late_update",
-    title: "Late update",
-  },
-  {
-    description: "VenueWave fails, records backoff, then resumes its poll.",
-    id: "provider_outage",
-    title: "Provider outage",
-  },
-  {
-    description: "A rate limit preserves the cursor before a scheduled retry.",
-    id: "rate_limit",
-    title: "Rate limit",
-  },
-  {
-    description:
-      "Two similar shows require a person to select the safe mapping.",
-    id: "uncertain_event_match",
-    title: "Uncertain event match",
-  },
-  {
-    description:
-      "An incomplete BoxGrid snapshot cannot alter the stored facts.",
-    id: "incomplete_snapshot",
-    title: "Incomplete snapshot",
-  },
-  {
-    description:
-      "Provider-scoped facts keep 400 EncoreTix and 600 BoxGrid tickets.",
-    id: "provider_change",
-    title: "Provider change",
-  },
-];
 
 async function loadDashboard(token: string): Promise<DashboardData> {
   const [overview, providers, shows, messages, reviews] = await Promise.all([
@@ -538,101 +498,6 @@ function NeedsReview({
   );
 }
 
-function IntegrationLab({
-  onReset,
-  onRun,
-  pendingAction,
-  run,
-  status,
-}: {
-  onReset: () => Promise<void>;
-  onRun: (scenario: ScenarioId) => Promise<void>;
-  pendingAction: string | null;
-  run: ScenarioRunDto | null;
-  status: string;
-}) {
-  return (
-    <div className="split-grid wide-first">
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Controlled practice</p>
-            <h2>Scenario library</h2>
-          </div>
-          <span className="muted">Seven isolated cases</span>
-        </div>
-        <div className="scenario-list">
-          {scenarios.map((scenario) => (
-            <article className="scenario" key={scenario.id}>
-              <div>
-                <h3>{scenario.title}</h3>
-                <p>{scenario.description}</p>
-              </div>
-              <button
-                disabled={pendingAction !== null}
-                onClick={() => void onRun(scenario.id)}
-              >
-                Run scenario
-              </button>
-            </article>
-          ))}
-        </div>
-      </section>
-      <section className="panel trace-panel" aria-live="polite">
-        <p className="sr-only">{status}</p>
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Processing trace</p>
-            <h2>
-              {run
-                ? scenarios.find((scenario) => scenario.id === run.scenario)
-                    ?.title
-                : "No run selected"}
-            </h2>
-          </div>
-          {run ? (
-            <button
-              className="button-secondary"
-              disabled={pendingAction !== null}
-              onClick={() => void onReset()}
-            >
-              Reset run
-            </button>
-          ) : null}
-        </div>
-        {run ? (
-          <ol className="trace-list">
-            {run.trace.map((step) => (
-              <li key={step.order}>
-                <span>{step.order + 1}</span>
-                <div>
-                  <h3>{step.title}</h3>
-                  <p>{step.explanation}</p>
-                  <dl>
-                    <div>
-                      <dt>State</dt>
-                      <dd>{statusLabel(step.state)}</dd>
-                    </div>
-                    <div>
-                      <dt>Database</dt>
-                      <dd>{step.databaseEffect}</dd>
-                    </div>
-                  </dl>
-                </div>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p>
-            Run a scenario to inspect its input, state changes, database effect,
-            audit result, and explanation.
-          </p>
-        )}
-      </section>
-    </div>
-  );
-}
-
 export function DashboardPage({
   page,
 }: {
@@ -648,6 +513,12 @@ export function DashboardPage({
   const loadCoordinatorRef = useRef(
     new DashboardLoadCoordinator<DashboardSession>(),
   );
+  const routeStateRef = useRef(defaultRouteState);
+
+  const updateRouteState = useCallback((nextState: DashboardRouteState) => {
+    routeStateRef.current = nextState;
+    setRouteState(nextState);
+  }, []);
 
   const refresh = useCallback(
     (
@@ -713,9 +584,31 @@ export function DashboardPage({
       organizationSlugs,
       defaultRouteState.organizationSlug,
     );
-    setRouteState(nextState);
+    updateRouteState(nextState);
     void startSession(nextState);
-  }, [startSession]);
+  }, [startSession, updateRouteState]);
+
+  useEffect(() => {
+    function onPopState() {
+      const nextState = dashboardLocation(
+        window.location.search,
+        organizationSlugs,
+        defaultRouteState.organizationSlug,
+      );
+
+      if (requiresDashboardSessionReload(routeStateRef.current, nextState)) {
+        loadCoordinatorRef.current.invalidate();
+        updateRouteState(nextState);
+        void startSession(nextState);
+        return;
+      }
+
+      updateRouteState(nextState);
+    }
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [startSession, updateRouteState]);
 
   const activeToken = () =>
     readLabToken(window.sessionStorage, routeState.organizationSlug);
@@ -733,8 +626,19 @@ export function DashboardPage({
       "",
       dashboardHref(window.location.pathname, nextState),
     );
-    setRouteState(nextState);
+    updateRouteState(nextState);
   };
+
+  function selectLesson(lesson: LessonId) {
+    const nextState = withLesson(routeStateRef.current, lesson);
+    if (nextState.lesson === routeStateRef.current.lesson) return;
+    window.history.pushState(
+      null,
+      "",
+      dashboardHref(window.location.pathname, nextState),
+    );
+    updateRouteState(nextState);
+  }
 
   async function reviewAction(review: ReviewDto, action: "approve" | "reject") {
     const organizationSlug = routeState.organizationSlug;
@@ -795,9 +699,7 @@ export function DashboardPage({
     commitAction(actionGeneration, () => {
       setError(null);
       setPendingAction(scenario);
-      setLabStatus(
-        `Running ${scenarios.find((item) => item.id === scenario)?.title ?? "scenario"}.`,
-      );
+      setLabStatus(`Running ${scenarioTitle(scenario)}.`);
     });
     try {
       const nextRun = await requestScenarioRun(token, scenario);
@@ -937,9 +839,11 @@ export function DashboardPage({
       pendingAction={pendingAction}
     />
   ) : page === "lab" ? (
-    <IntegrationLab
+    <IntegrationLessons
+      activeLessonId={routeState.lesson}
       onReset={resetRun}
       onRun={runScenario}
+      onSelectLesson={selectLesson}
       pendingAction={pendingAction}
       run={run}
       status={labStatus}

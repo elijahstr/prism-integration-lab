@@ -4,6 +4,7 @@ import {
   dashboardHref,
   dashboardLocation,
   dashboardNavigation,
+  requiresDashboardSessionReload,
   switchOrganization,
   withLesson,
   withScenarioRun,
@@ -140,5 +141,29 @@ describe("dashboard URL state", () => {
       organizationSlug: "northstar-presents",
       runId: "run-123",
     });
+  });
+
+  test("reloads the dashboard session only when organization or run changes", () => {
+    const current = {
+      lesson: "webhooks" as const,
+      organizationSlug: "northstar-presents",
+      runId: "run-123",
+    };
+
+    expect(
+      requiresDashboardSessionReload(current, {
+        ...current,
+        lesson: "api-mapping",
+      }),
+    ).toBe(false);
+    expect(
+      requiresDashboardSessionReload(current, {
+        ...current,
+        organizationSlug: "harborlight-live",
+      }),
+    ).toBe(true);
+    expect(
+      requiresDashboardSessionReload(current, { ...current, runId: "run-456" }),
+    ).toBe(true);
   });
 });
