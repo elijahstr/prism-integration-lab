@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const establishedProviders = ["DICE", "Ticketmaster", "Tixr", "Eventbrite"];
+const establishedProviders = ["DICE", "Tixr"];
 const removedFooter =
   "Static architecture explainer · No live customer or provider data";
 
@@ -76,7 +76,7 @@ for (const lesson of [
   },
   {
     id: "money-refunds",
-    diagramName: /DICE, Ticketmaster, Tixr, Eventbrite, and proposed Posh/,
+    diagramName: /DICE, Tixr, and proposed Posh/,
     scenarioText: /Apply a refund without hiding the provider fee/,
   },
   {

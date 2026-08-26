@@ -37,7 +37,7 @@ export type Lesson = {
 };
 
 const PROVIDER_CONTEXT =
-  "Prism supports DICE, Ticketmaster, Tixr, and Eventbrite as established providers. Posh is the proposed new provider in this hypothetical onboarding scenario.";
+  "Prism supports DICE and Tixr as established providers. Posh is the proposed new provider in this hypothetical onboarding scenario.";
 
 export const LESSONS: readonly Lesson[] = [
   {
@@ -58,7 +58,7 @@ export const LESSONS: readonly Lesson[] = [
     eyebrow: "Challenge 01 · shared ticket model",
     title: "Provider data must mean the same thing",
     intro:
-      "For the Come and Take It Live show, DICE, Ticketmaster, Tixr, Eventbrite, and proposed Posh can describe ticket tiers, sold count, gross, fees, refunds, and comps in different fields.",
+      "For the Come and Take It Live show, DICE, Tixr, and proposed Posh can describe ticket tiers, sold count, gross, fees, refunds, and comps in different fields.",
     context:
       "Prism needs a canonical model. A canonical model is Prism’s stable internal record for a show, a ticket sale, and its money components. It lets Come and Take It Productions use one sales report and settlement process, even when provider fields differ. " +
       PROVIDER_CONTEXT,
@@ -113,7 +113,7 @@ export const LESSONS: readonly Lesson[] = [
         "Map the ticket tier, sold count, gross, fee, and refund state into Prism fields.",
       ],
       result:
-        "Come and Take It Productions sees the same sale facts that it sees for DICE, Ticketmaster, Tixr, and Eventbrite.",
+        "Come and Take It Productions sees the same sale facts that it sees for DICE and Tixr.",
     },
   },
   {
@@ -310,7 +310,7 @@ export const LESSONS: readonly Lesson[] = [
       "Prism should store each money component in integer cents with its source, owner, and reason. A proposed Posh onboarding can map orders, fees, refunds or chargebacks, and affiliate or Kickback commissions without changing the Come and Take It Productions settlement rules. " +
       PROVIDER_CONTEXT,
     diagramCaption:
-      "DICE, Ticketmaster, Tixr, Eventbrite, and proposed Posh ticket facts join Come and Take It Live costs and the Come and Take It Productions deal in the Prism settlement ledger.",
+      "DICE, Tixr, and proposed Posh ticket facts join Come and Take It Live costs and the Come and Take It Productions deal in the Prism settlement ledger.",
     approaches: [
       {
         name: "Store one net total",
@@ -416,7 +416,7 @@ export const LESSONS: readonly Lesson[] = [
       setup:
         "Ticket totals match, but a proposed Posh affiliate commission and a $250 production expense need evidence before the Come and Take It Productions settlement.",
       steps: [
-        "Mark the DICE, Ticketmaster, Tixr, Eventbrite, and Posh ticket comparison complete at its checkpoint.",
+        "Mark the DICE, Tixr, and Posh ticket comparison complete at its checkpoint.",
         "Route only the unmatched commission and expense to the promoter review queue.",
         "Attach evidence, approve the entries, and resume the settlement from the checkpoint.",
       ],

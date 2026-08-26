@@ -203,7 +203,7 @@ function ApiMappingDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="DICE, Ticketmaster, Tixr, Eventbrite, and proposed Posh pass the hypothetical Come and Take It Live show through adapters into one Prism model. Come and Take It Productions uses the mapped facts for its deal and settlement. Raw payloads remain available for audit."
+      description="DICE, Tixr, and proposed Posh pass the hypothetical Come and Take It Live show through adapters into one Prism model. Come and Take It Productions uses the mapped facts for its deal and settlement. Raw payloads remain available for audit."
       height={540}
       id="api-mapping"
     >
@@ -223,14 +223,14 @@ function ApiMappingDiagram({ caption }: { caption: string }) {
       />
       <Node
         lines={["event ID · gross"]}
-        title="DICE + Ticketmaster"
+        title="DICE"
         width={175}
         x={55}
         y={105}
       />
       <Node
         lines={["ticket tier · paid"]}
-        title="Tixr + Eventbrite"
+        title="Tixr"
         width={175}
         x={55}
         y={225}
@@ -244,14 +244,14 @@ function ApiMappingDiagram({ caption }: { caption: string }) {
       />
       <Node
         lines={["validate · translate"]}
-        title="DICE / TM adapter"
+        title="DICE adapter"
         width={170}
         x={335}
         y={105}
       />
       <Node
         lines={["validate · translate"]}
-        title="Tixr / EB adapter"
+        title="Tixr adapter"
         width={170}
         x={335}
         y={225}
@@ -592,7 +592,7 @@ function MoneyDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="DICE, Ticketmaster, Tixr, Eventbrite, and proposed Posh ticket facts join the hypothetical Come and Take It Live venue costs and the Come and Take It Productions deal. Prism classifies each amount before settlement and reconciliation."
+      description="DICE, Tixr, and proposed Posh ticket facts join the hypothetical Come and Take It Live venue costs and the Come and Take It Productions deal. Prism classifies each amount before settlement and reconciliation."
       height={560}
       id="money-refunds"
     >
@@ -605,14 +605,14 @@ function MoneyDiagram({ caption }: { caption: string }) {
       />
       <Node
         lines={["sales · fees · refunds"]}
-        title="DICE + Ticketmaster"
+        title="DICE"
         width={220}
         x={40}
         y={120}
       />
       <Node
         lines={["ticket tiers · comps"]}
-        title="Tixr + Eventbrite"
+        title="Tixr"
         width={220}
         x={40}
         y={245}
@@ -693,7 +693,7 @@ function ReconciliationDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="The Come and Take It Productions offer and the Come and Take It Live ticket actuals enter Prism reconciliation. DICE, Ticketmaster, Tixr, Eventbrite, and proposed Posh onboarding data use the same close process. Matched facts close automatically, while differences enter review and resume from a checkpoint."
+      description="The Come and Take It Productions offer and the Come and Take It Live ticket actuals enter Prism reconciliation. DICE, Tixr, and proposed Posh onboarding data use the same close process. Matched facts close automatically, while differences enter review and resume from a checkpoint."
       height={570}
       id="reconciliation-recovery"
     >
@@ -705,7 +705,7 @@ function ReconciliationDiagram({ caption }: { caption: string }) {
         y={105}
       />
       <Node
-        lines={["DICE · Ticketmaster", "Tixr · Eventbrite · Posh"]}
+        lines={["DICE · Tixr · Posh", "ticket actuals + payments"]}
         title="Come and Take It Live"
         width={230}
         x={30}
