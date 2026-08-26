@@ -167,15 +167,52 @@ test("shows the complete ticket-data sequence", async ({ page }) => {
     "apply once",
     "duplicate retry",
     "acknowledge, no second effect",
-    "poll report pages 1 + 2",
-    "page 3 fails",
+    "request ticket report",
+    "report pages 1 + 2",
+    "stage partial report",
+    "request page 3",
+    "page 3 failure",
+    "stage error + cursor",
     "keep last trusted facts",
     "retry page 3",
-    "publish complete snapshot",
+    "page 3 arrives",
+    "stage complete report",
+    "send complete scope",
+    "validate and publish snapshot",
   ]) {
     await expect(
       page.locator("svg text").filter({ hasText: label }),
     ).toBeVisible();
+  }
+});
+
+test("keeps every merged-diagram node title inside its node", async ({
+  page,
+}) => {
+  for (const lesson of ["ticket-data-integrity", "transaction-accuracy"]) {
+    await page.goto(`/?lesson=${lesson}`);
+    const overflow = await page
+      .locator(".architecture-diagram svg")
+      .evaluate((svg) =>
+        Array.from(
+          svg.querySelectorAll<SVGTextElement>(
+            ".architecture-node .architecture-node-title",
+          ),
+        )
+          .map((title) => {
+            const titleBox = title.getBBox();
+            const node = title.closest(".architecture-node");
+            const nodeBox = node?.querySelector("rect")?.getBBox();
+            return {
+              text: title.textContent,
+              overflows:
+                !nodeBox ||
+                titleBox.x + titleBox.width > nodeBox.x + nodeBox.width,
+            };
+          })
+          .filter((item) => item.overflows),
+      );
+    expect(overflow).toEqual([]);
   }
 });
 

@@ -412,22 +412,21 @@ function OrderingDiagram({ caption }: { caption: string }) {
 function TicketDataIntegrityDiagram({ caption }: { caption: string }) {
   const markerId = "ticket-data-integrity-arrow";
   const actors = [
-    [20, "Posh (proposed)", "provider"],
-    [215, "Provider adapter", "edge"],
-    [410, "Durable inbox + staging", "Prism store"],
-    [605, "Sync process", "Prism worker"],
-    [800, "Trusted ticket facts", "published Prism view"],
+    [0, "Posh (proposed)", "provider", 185],
+    [195, "Provider adapter", "integration boundary", 205],
+    [420, "Durable intake", "inbox + snapshot staging", 190],
+    [630, "Sync process", "Prism worker", 160],
+    [790, "Trusted ticket facts", "published Prism view", 210],
   ] as const;
 
   return (
     <DiagramCanvas
       caption={caption}
-      description="Sequence diagram. A proposed Posh sale reaches the provider adapter and durable inbox. Prism applies the first delivery once. A duplicate retry has no second effect. A later paged report returns pages one and two, then page three fails. Prism stages the incomplete report and keeps the last trusted ticket facts. After page three retries, Prism validates and publishes the complete report."
-      height={1100}
+      description="Sequence diagram. A proposed Posh sale reaches the provider adapter, durable intake, and Sync process. Prism applies the first delivery once. A duplicate retry has no second effect. The adapter requests a paged report. Posh returns pages one and two, then returns a page-three failure. The adapter stages the partial report, error, and cursor. Sync keeps trusted ticket facts unchanged. The adapter retries page three. After Posh returns it, durable intake sends the complete scope to Sync for validation and publication."
+      height={1600}
       id="ticket-data-integrity"
     >
-      {actors.map(([x, title, detail], index) => {
-        const width = index === 2 ? 170 : 150;
+      {actors.map(([x, title, detail, width], index) => {
         const center = x + width / 2;
         return (
           <g key={title}>
@@ -441,34 +440,34 @@ function TicketDataIntegrityDiagram({ caption }: { caption: string }) {
             />
             <path
               className="architecture-lifeline"
-              d={`M${center} 122 V1050`}
+              d={`M${center} 122 V1545`}
             />
           </g>
         );
       })}
       <Edge
-        d="M95 175 H290"
+        d="M92.5 175 H298"
         label="1 · sale event arrives"
         labelX={125}
         labelY={162}
         markerId={markerId}
       />
       <Edge
-        d="M290 245 H495"
+        d="M298 245 H515"
         label="2 · store event ID"
         labelX={325}
         labelY={232}
         markerId={markerId}
       />
       <Edge
-        d="M495 315 H680"
+        d="M515 315 H710"
         label="3 · first delivery"
         labelX={530}
         labelY={302}
         markerId={markerId}
       />
       <Edge
-        d="M680 385 H875"
+        d="M710 385 H895"
         label="4 · apply once"
         labelX={720}
         labelY={372}
@@ -476,7 +475,7 @@ function TicketDataIntegrityDiagram({ caption }: { caption: string }) {
         tone="green"
       />
       <Edge
-        d="M95 465 H290"
+        d="M92.5 465 H298"
         dashed
         label="5 · duplicate retry"
         labelX={125}
@@ -485,7 +484,7 @@ function TicketDataIntegrityDiagram({ caption }: { caption: string }) {
         tone="red"
       />
       <Edge
-        d="M290 535 H495"
+        d="M298 535 H515"
         dashed
         label="6 · event already complete"
         labelX={315}
@@ -493,7 +492,7 @@ function TicketDataIntegrityDiagram({ caption }: { caption: string }) {
         markerId={markerId}
       />
       <Edge
-        d="M495 605 H95"
+        d="M515 605 H92.5"
         dashed
         label="7 · acknowledge, no second effect"
         labelX={175}
@@ -502,57 +501,95 @@ function TicketDataIntegrityDiagram({ caption }: { caption: string }) {
         tone="green"
       />
       <Edge
-        d="M95 685 H290"
-        label="8 · poll report pages 1 + 2"
-        labelX={120}
+        d="M298 685 H92.5"
+        label="8 · request ticket report"
+        labelX={125}
         labelY={672}
         markerId={markerId}
       />
       <Edge
-        d="M290 755 H495"
-        label="9 · stage partial report"
-        labelX={325}
+        d="M92.5 755 H298"
+        label="9 · report pages 1 + 2"
+        labelX={115}
         labelY={742}
         markerId={markerId}
       />
       <Edge
-        d="M95 825 H290"
-        label="10 · page 3 fails"
-        labelX={145}
+        d="M298 825 H515"
+        label="10 · stage partial report"
+        labelX={325}
         labelY={812}
         markerId={markerId}
-        tone="red"
       />
       <Edge
-        d="M495 895 H875"
-        dashed
-        label="11 · keep last trusted facts"
-        labelX={575}
+        d="M298 895 H92.5"
+        label="11 · request page 3"
+        labelX={125}
         labelY={882}
         markerId={markerId}
+      />
+      <Edge
+        d="M92.5 965 H298"
+        label="12 · page 3 failure"
+        labelX={135}
+        labelY={952}
+        markerId={markerId}
         tone="red"
       />
       <Edge
-        d="M95 965 H290"
+        d="M298 1035 H515"
+        label="13 · stage error + cursor"
+        labelX={310}
+        labelY={1022}
+        markerId={markerId}
+        tone="red"
+      />
+      <Edge
+        d="M710 1105 H895"
         dashed
-        label="12 · retry page 3"
-        labelX={140}
-        labelY={952}
+        label="14 · keep last trusted facts"
+        labelX={725}
+        labelY={1092}
+        markerId={markerId}
+        tone="red"
+      />
+      <Edge
+        d="M298 1175 H92.5"
+        dashed
+        label="15 · retry page 3"
+        labelX={135}
+        labelY={1162}
         markerId={markerId}
       />
       <Edge
-        d="M290 1025 H495"
-        label="13 · full report validates"
-        labelX={315}
-        labelY={1012}
+        d="M92.5 1245 H298"
+        label="16 · page 3 arrives"
+        labelX={130}
+        labelY={1232}
         markerId={markerId}
         tone="green"
       />
       <Edge
-        d="M495 1065 H875"
-        label="14 · publish complete snapshot"
-        labelX={590}
-        labelY={1052}
+        d="M298 1315 H515"
+        label="17 · stage complete report"
+        labelX={310}
+        labelY={1302}
+        markerId={markerId}
+        tone="green"
+      />
+      <Edge
+        d="M515 1385 H710"
+        label="18 · send complete scope"
+        labelX={520}
+        labelY={1372}
+        markerId={markerId}
+        tone="green"
+      />
+      <Edge
+        d="M710 1455 H895"
+        label="19 · validate and publish snapshot"
+        labelX={710}
+        labelY={1442}
         markerId={markerId}
         tone="green"
       />
@@ -573,44 +610,44 @@ function TransactionAccuracyDiagram({ caption }: { caption: string }) {
       <Boundary
         height={510}
         label="Sourced show facts"
-        width={250}
+        width={350}
         x={20}
         y={70}
       />
       <Node
         lines={["refund −$45.00", "retained fee +$3.50"]}
         title="Provider ticket facts"
-        width={210}
-        x={40}
+        width={310}
+        x={45}
         y={125}
       />
       <Node
         lines={["room, staffing, and show costs"]}
         title="Come and Take It Live"
-        width={210}
-        x={40}
+        width={310}
+        x={45}
         y={285}
       />
       <Node
         lines={["guarantee · co-pro split", "unsupported expense $250.00"]}
         title="Come and Take It Productions"
-        width={210}
-        x={40}
+        width={310}
+        x={45}
         y={425}
       />
       <Node
         lines={["type · amount · owner", "reason · provider or deal source"]}
         title="Typed Prism ledger"
         tone="purple"
-        width={255}
-        x={315}
+        width={220}
+        x={375}
         y={255}
       />
       <Node
         lines={["compare expected and", "actual balances"]}
         title="Reconciliation"
         width={180}
-        x={590}
+        x={630}
         y={255}
       />
       <Decision cx={870} cy={305} lines={["matched", "facts?"]} />
@@ -618,36 +655,36 @@ function TransactionAccuracyDiagram({ caption }: { caption: string }) {
         lines={["approved balance", "complete audit trail"]}
         title="Final settlement"
         tone="green"
-        width={175}
-        x={805}
+        width={210}
+        x={790}
         y={90}
       />
       <Node
         lines={["$250 expense only", "attach evidence"]}
         title="Review queue"
         tone="red"
-        width={175}
-        x={805}
+        width={165}
+        x={815}
         y={430}
       />
       <Store
         detail="last verified step"
         title="Settlement checkpoint"
         width={230}
-        x={480}
+        x={475}
         y={510}
       />
       {[168, 328, 468].map((y) => (
         <Edge
-          d={`M250 ${y} C278 ${y} 290 305 315 305`}
+          d={`M355 ${y} C365 ${y} 370 305 375 305`}
           key={y}
           markerId={markerId}
         />
       ))}
-      <Edge d="M570 305 H590" markerId={markerId} />
-      <Edge d="M770 305 H792" markerId={markerId} />
+      <Edge d="M595 305 H630" markerId={markerId} />
+      <Edge d="M810 305 H792" markerId={markerId} />
       <Edge
-        d="M870 251 C870 184 865 170 805 170"
+        d="M870 251 C870 184 865 170 790 170"
         markerId={markerId}
         tone="green"
       />
@@ -657,7 +694,7 @@ function TransactionAccuracyDiagram({ caption }: { caption: string }) {
         tone="red"
       />
       <Edge
-        d="M892 520 C892 585 735 590 710 555"
+        d="M892 520 C892 585 730 590 705 555"
         dashed
         label="evidence approved"
         labelX={780}
@@ -666,7 +703,7 @@ function TransactionAccuracyDiagram({ caption }: { caption: string }) {
         tone="green"
       />
       <Edge
-        d="M480 555 C420 555 390 430 440 345"
+        d="M475 555 C420 555 390 430 450 345"
         dashed
         label="resume from checkpoint"
         labelX={350}
