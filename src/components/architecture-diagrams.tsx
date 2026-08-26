@@ -479,13 +479,7 @@ function PollingDiagram({ caption }: { caption: string }) {
         labelY={341}
         markerId={markerId}
       />
-      <Edge
-        d="M240 398 C275 398 275 275 315 275"
-        label="normalized records + completeness"
-        labelX={165}
-        labelY={420}
-        markerId={markerId}
-      />
+      <Edge d="M240 398 C275 398 275 275 315 275" markerId={markerId} />
       <Edge
         d="M525 275 H570"
         label="stage"
@@ -663,8 +657,8 @@ function MoneyDiagram({ caption }: { caption: string }) {
         lines={["amount · owner · reason", "provider or deal source"]}
         title="Classify sourced entries"
         tone="purple"
-        width={370}
-        x={300}
+        width={355}
+        x={315}
         y={240}
       />
       <Store
@@ -691,7 +685,7 @@ function MoneyDiagram({ caption }: { caption: string }) {
       />
       {[176, 391].map((y) => (
         <Edge
-          d={`M282 ${y} C310 ${y} 310 283 300 283`}
+          d={`M282 ${y} C295 ${y} 300 283 315 283`}
           key={y}
           markerId={markerId}
         />

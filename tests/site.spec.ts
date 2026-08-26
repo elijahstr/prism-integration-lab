@@ -93,6 +93,22 @@ test("opens a lesson from its shareable URL", async ({ page }) => {
   await expect(page.getByText("Technical debt")).toHaveCount(3);
 });
 
+test("uses visible challenge numbers in lesson order", async ({ page }) => {
+  for (const [id, challenge] of [
+    ["api-mapping", "01"],
+    ["webhooks", "02"],
+    ["ordering-conflicts", "03"],
+    ["money-refunds", "04"],
+    ["reconciliation-recovery", "05"],
+    ["polling-snapshots", "06"],
+  ]) {
+    await page.goto(`/?lesson=${id}`);
+    await expect(page.locator(".eyebrow")).toContainText(
+      `Challenge ${challenge}`,
+    );
+  }
+});
+
 for (const lesson of [
   {
     id: "api-mapping",

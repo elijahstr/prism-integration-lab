@@ -174,7 +174,7 @@ const LESSONS_BY_ID: readonly Lesson[] = [
   {
     id: "polling-snapshots",
     tab: "Polling & Snapshots",
-    eyebrow: "Challenge 03 · complete sales scope",
+    eyebrow: "Challenge 06 · complete sales scope",
     title: "Do not publish a partial ticket report",
     intro:
       "Prism can ask a provider for a ticket report in pages. A snapshot is the complete sales picture for one show at one time. An incomplete report must not replace the last trusted sales total.",
@@ -234,7 +234,7 @@ const LESSONS_BY_ID: readonly Lesson[] = [
   {
     id: "ordering-conflicts",
     tab: "Ordering & Conflicts",
-    eyebrow: "Challenge 04 · venue and promoter state",
+    eyebrow: "Challenge 03 · venue and promoter state",
     title: "One show record is the source of truth",
     intro:
       "One Prism show record holds the accepted date, room, status, and version across Come and Take It Live, Come and Take It Productions, their calendars, and ticket providers. A later message does not automatically win.",
@@ -294,7 +294,7 @@ const LESSONS_BY_ID: readonly Lesson[] = [
   {
     id: "money-refunds",
     tab: "Money & Refunds",
-    eyebrow: "Challenge 05 · settlement components",
+    eyebrow: "Challenge 04 · settlement components",
     title: "A refund and a fee need separate entries",
     intro:
       "A customer receives a $45.00 ticket refund, while a $3.50 provider fee remains. One net or gross value cannot show who owes what in the Come and Take It Live and Come and Take It Productions settlement.",
@@ -354,7 +354,7 @@ const LESSONS_BY_ID: readonly Lesson[] = [
   {
     id: "reconciliation-recovery",
     tab: "Reconciliation & Recovery",
-    eyebrow: "Challenge 06 · close the show with proof",
+    eyebrow: "Challenge 05 · close the show with proof",
     title: "Settlement must explain each difference",
     intro:
       "Before the hypothetical show closes, Come and Take It Live and Come and Take It Productions compare the offer, guarantee, ticket actuals, payments, expenses, and co-pro split.",
