@@ -609,11 +609,11 @@ function TransactionAccuracyDiagram({ caption }: { caption: string }) {
       <Node
         lines={["compare expected and", "actual balances"]}
         title="Reconciliation"
-        width={190}
-        x={610}
+        width={180}
+        x={590}
         y={255}
       />
-      <Decision cx={875} cy={305} lines={["matched", "facts?"]} />
+      <Decision cx={870} cy={305} lines={["matched", "facts?"]} />
       <Node
         lines={["approved balance", "complete audit trail"]}
         title="Final settlement"
@@ -644,20 +644,20 @@ function TransactionAccuracyDiagram({ caption }: { caption: string }) {
           markerId={markerId}
         />
       ))}
-      <Edge d="M570 305 H610" markerId={markerId} />
-      <Edge d="M800 305 H797" markerId={markerId} />
+      <Edge d="M570 305 H590" markerId={markerId} />
+      <Edge d="M770 305 H792" markerId={markerId} />
       <Edge
-        d="M875 251 C875 184 870 170 805 170"
+        d="M870 251 C870 184 865 170 805 170"
         markerId={markerId}
         tone="green"
       />
       <Edge
-        d="M875 359 C875 400 875 410 875 430"
+        d="M870 359 C870 400 875 410 875 430"
         markerId={markerId}
         tone="red"
       />
       <Edge
-        d="M892 512 C892 585 735 590 710 565"
+        d="M892 520 C892 585 735 590 710 555"
         dashed
         label="evidence approved"
         labelX={780}
@@ -666,7 +666,7 @@ function TransactionAccuracyDiagram({ caption }: { caption: string }) {
         tone="green"
       />
       <Edge
-        d="M480 555 C420 555 390 430 440 355"
+        d="M480 555 C420 555 390 430 440 345"
         dashed
         label="resume from checkpoint"
         labelX={350}
