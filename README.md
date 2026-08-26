@@ -2,6 +2,8 @@
 
 An unofficial portfolio prototype that explains ticket-provider architecture for a venue and promoter workflow.
 
+Live site: [prism-integration-lab.vercel.app](https://prism-integration-lab.vercel.app/)
+
 The scenario uses Come and Take It Live in Austin and Come and Take It Productions. The provider and transport examples are hypothetical.
 
 ## What is included
