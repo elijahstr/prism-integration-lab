@@ -445,7 +445,7 @@ function PollingDiagram({ caption }: { caption: string }) {
         x={570}
         y={235}
       />
-      <Decision cx={855} cy={285} lines={["complete and", "valid?"]} />
+      <Decision cx={875} cy={285} lines={["complete and", "valid?"]} />
       <Node
         lines={["venue sales · promoter actuals", "safe for settlement"]}
         title="Complete snapshot"
@@ -493,25 +493,19 @@ function PollingDiagram({ caption }: { caption: string }) {
         labelY={260}
         markerId={markerId}
       />
+      <Edge d="M765 285 H797" markerId={markerId} />
       <Edge
-        d="M765 285 H777"
-        label="validate"
-        labelX={765}
-        labelY={270}
-        markerId={markerId}
-      />
-      <Edge
-        d="M855 339 V440"
+        d="M875 339 V440"
         label="yes · publish"
-        labelX={865}
+        labelX={885}
         labelY={390}
         markerId={markerId}
         tone="green"
       />
       <Edge
-        d="M855 231 V178"
+        d="M875 231 V160"
         label="no"
-        labelX={865}
+        labelX={885}
         labelY={210}
         markerId={markerId}
         tone="red"
@@ -669,15 +663,15 @@ function MoneyDiagram({ caption }: { caption: string }) {
         lines={["amount · owner · reason", "provider or deal source"]}
         title="Classify sourced entries"
         tone="purple"
-        width={235}
-        x={365}
+        width={370}
+        x={300}
         y={240}
       />
       <Store
         detail="revenue · fee · refund · cost"
         title="Prism ledger"
         width={220}
-        x={650}
+        x={720}
         y={240}
       />
       <Node
@@ -697,30 +691,24 @@ function MoneyDiagram({ caption }: { caption: string }) {
       />
       {[176, 391].map((y) => (
         <Edge
-          d={`M282 ${y} C330 ${y} 330 283 365 283`}
+          d={`M282 ${y} C310 ${y} 310 283 300 283`}
           key={y}
           markerId={markerId}
         />
       ))}
+      <Edge d="M670 283 H720" markerId={markerId} />
       <Edge
-        d="M600 283 H650"
-        label="typed entries"
-        labelX={607}
-        labelY={268}
-        markerId={markerId}
-      />
-      <Edge
-        d="M760 240 C760 180 740 175 740 175"
+        d="M830 240 C830 190 790 175 740 175"
         label="calculate"
-        labelX={708}
-        labelY={195}
+        labelX={830}
+        labelY={220}
         markerId={markerId}
         tone="green"
       />
       <Edge
-        d="M760 326 C760 370 745 440 745 440"
+        d="M830 320 C830 365 855 365 855 395"
         label="compare"
-        labelX={708}
+        labelX={840}
         labelY={375}
         markerId={markerId}
       />

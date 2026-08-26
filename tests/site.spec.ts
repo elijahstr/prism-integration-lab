@@ -65,6 +65,15 @@ test("shows the venue and promoter overview", async ({ page }) => {
     page.getByRole("img", { name: /Come and Take It Live venue logo/ }),
   ).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(7);
+  await expect(page.getByRole("tab")).toHaveText([
+    "Overview",
+    "API Mapping",
+    "Webhooks",
+    "Ordering & Conflicts",
+    "Money & Refunds",
+    "Reconciliation & Recovery",
+    "Polling & Snapshots",
+  ]);
   await expect(page.locator(".architecture-diagram")).toHaveCount(0);
   await expect(page.getByText(removedFooter)).toHaveCount(0);
 });
@@ -154,4 +163,29 @@ test("supports keyboard tab navigation", async ({ page }) => {
   await overview.press("ArrowRight");
   await expect(page.getByRole("tab", { name: "API Mapping" })).toBeFocused();
   await expect(page).toHaveURL(/lesson=api-mapping/);
+
+  const reconciliation = page.getByRole("tab", {
+    name: "Reconciliation & Recovery",
+  });
+  await reconciliation.focus();
+  await reconciliation.press("ArrowRight");
+  await expect(
+    page.getByRole("tab", { name: "Polling & Snapshots" }),
+  ).toBeFocused();
+  await expect(page).toHaveURL(/lesson=polling-snapshots/);
+});
+
+test("uses the lesson sequence in footer navigation", async ({ page }) => {
+  await page.goto("/?lesson=ordering-conflicts");
+
+  await expect(page.getByRole("button", { name: "← Webhooks" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Money & Refunds →" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Money & Refunds →" }).click();
+  await expect(page).toHaveURL(/lesson=money-refunds/);
+  await expect(
+    page.getByRole("button", { name: "Reconciliation & Recovery →" }),
+  ).toBeVisible();
 });

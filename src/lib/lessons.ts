@@ -2,10 +2,10 @@ export const LESSON_IDS = [
   "overview",
   "api-mapping",
   "webhooks",
-  "polling-snapshots",
   "ordering-conflicts",
   "money-refunds",
   "reconciliation-recovery",
+  "polling-snapshots",
 ] as const;
 
 export type LessonId = (typeof LESSON_IDS)[number];
@@ -36,7 +36,7 @@ export type Lesson = {
   };
 };
 
-export const LESSONS: readonly Lesson[] = [
+const LESSONS_BY_ID: readonly Lesson[] = [
   {
     id: "overview",
     tab: "Overview",
@@ -415,6 +415,12 @@ export const LESSONS: readonly Lesson[] = [
     },
   },
 ];
+
+export const LESSONS: readonly Lesson[] = LESSON_IDS.map((id) => {
+  const lesson = LESSONS_BY_ID.find((candidate) => candidate.id === id);
+  if (!lesson) throw new Error(`No lesson found for ${id}`);
+  return lesson;
+});
 
 export function isLessonId(value: string | null): value is LessonId {
   return LESSON_IDS.includes(value as LessonId);
