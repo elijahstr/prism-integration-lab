@@ -198,7 +198,6 @@ export function IntegrationLab() {
       </article>
 
       <footer>
-        <p>Static architecture explainer · No live customer or provider data</p>
         <div>
           {activeIndex > 0 ? (
             <button

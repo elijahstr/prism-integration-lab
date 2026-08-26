@@ -203,13 +203,13 @@ function ApiMappingDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="Three ticket providers pass different fields through dedicated adapters into one Prism model. Raw payloads remain available for audit."
+      description="DICE, Ticketmaster, Tixr, Eventbrite, and proposed Posh pass the hypothetical Come and Take It Live show through adapters into one Prism model. Come and Take It Productions uses the mapped facts for its deal and settlement. Raw payloads remain available for audit."
       height={540}
       id="api-mapping"
     >
       <Boundary
         height={410}
-        label="Ticket provider boundary"
+        label="Ticket provider adapters"
         width={235}
         x={25}
         y={52}
@@ -222,61 +222,61 @@ function ApiMappingDiagram({ caption }: { caption: string }) {
         y={25}
       />
       <Node
-        lines={["event_id · gross"]}
-        title="Provider A"
+        lines={["event ID · gross"]}
+        title="DICE + Ticketmaster"
         width={175}
         x={55}
         y={105}
       />
       <Node
-        lines={["performance · paid"]}
-        title="Provider B"
+        lines={["ticket tier · paid"]}
+        title="Tixr + Eventbrite"
         width={175}
         x={55}
         y={225}
       />
       <Node
-        lines={["show_ref · total"]}
-        title="Provider C"
+        lines={["proposed onboarding"]}
+        title="Posh (proposed)"
         width={175}
         x={55}
         y={345}
       />
       <Node
         lines={["validate · translate"]}
-        title="Adapter A"
+        title="DICE / TM adapter"
         width={170}
         x={335}
         y={105}
       />
       <Node
         lines={["validate · translate"]}
-        title="Adapter B"
+        title="Tixr / EB adapter"
         width={170}
         x={335}
         y={225}
       />
       <Node
         lines={["validate · translate"]}
-        title="Adapter C"
+        title="Posh adapter"
         width={170}
         x={335}
         y={345}
       />
       <Node
-        lines={["showId · grossCents", "saleStatus · occurredAt"]}
+        lines={["Come and Take It Live", "show, sold count, gross"]}
         title="Canonical model"
         tone="purple"
-        width={205}
-        x={580}
+        width={240}
+        x={545}
         y={205}
       />
       <Node
-        lines={["venue reports", "promoter settlement"]}
+        lines={["venue reports", "Productions settlement"]}
         title="Prism workflows"
         tone="green"
-        width={155}
-        x={825}
+        width={170}
+        x={810}
         y={210}
       />
       <Store
@@ -289,22 +289,10 @@ function ApiMappingDiagram({ caption }: { caption: string }) {
       {[145, 265, 385].map((y) => (
         <Edge d={`M230 ${y} H335`} key={y} markerId={markerId} />
       ))}
-      <Edge d="M505 145 C545 145 545 220 580 238" markerId={markerId} />
-      <Edge
-        d="M505 265 H580"
-        label="normalize"
-        labelX={520}
-        labelY={248}
-        markerId={markerId}
-      />
-      <Edge d="M505 385 C545 385 545 310 580 292" markerId={markerId} />
-      <Edge
-        d="M785 265 H825"
-        label="shared"
-        labelX={788}
-        labelY={248}
-        markerId={markerId}
-      />
+      <Edge d="M505 145 C530 145 530 280 545 295" markerId={markerId} />
+      <Edge d="M505 265 C530 265 530 290 545 295" markerId={markerId} />
+      <Edge d="M505 385 C530 385 530 310 545 295" markerId={markerId} />
+      <Edge d="M785 295 C800 295 800 265 810 265" markerId={markerId} />
       <Edge
         d="M675 295 V365"
         label="preserve"
@@ -319,7 +307,7 @@ function ApiMappingDiagram({ caption }: { caption: string }) {
 function WebhookDiagram({ caption }: { caption: string }) {
   const markerId = "webhooks-arrow";
   const actors = [
-    [40, "Provider"],
+    [40, "Posh (proposed)"],
     [285, "Webhook edge"],
     [530, "Durable inbox"],
     [775, "Worker"],
@@ -328,7 +316,7 @@ function WebhookDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="A sequence diagram shows a provider delivery, durable receipt, safe processing, and a duplicate retry that does not change totals twice."
+      description="A proposed Posh onboarding event for the hypothetical Come and Take It Live show enters the Prism durable inbox. Prism processes it once, then exposes the sale to Come and Take It Productions actuals. The diagram treats webhook delivery as a design option, not a stated Posh capability."
       height={590}
       id="webhooks"
     >
@@ -347,7 +335,7 @@ function WebhookDiagram({ caption }: { caption: string }) {
       ))}
       <Edge
         d="M132 170 H377"
-        label="1 · POST sale_481"
+        label="1 · proposed sale event"
         labelX={185}
         labelY={158}
         markerId={markerId}
@@ -377,7 +365,7 @@ function WebhookDiagram({ caption }: { caption: string }) {
       <Edge
         d="M132 445 H377"
         dashed
-        label="5 · retry sale_481"
+        label="5 · retry same event"
         labelX={185}
         labelY={433}
         markerId={markerId}
@@ -393,11 +381,11 @@ function WebhookDiagram({ caption }: { caption: string }) {
         tone="green"
       />
       <Node
-        lines={["one effect only"]}
-        title="Prism totals"
+        lines={["sales + actuals", "one effect only"]}
+        title="Come and Take It Live"
         tone="green"
-        width={160}
-        x={795}
+        width={205}
+        x={775}
         y={445}
       />
     </DiagramCanvas>
@@ -410,7 +398,7 @@ function PollingDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="Prism loads all provider pages into staging. A completeness decision either publishes one snapshot or preserves the prior state."
+      description="Prism requests a proposed Posh order and attendee snapshot for the hypothetical Come and Take It Live show. Only a complete scope can change venue sales and Come and Take It Productions actuals. Polling is a design option, not a stated Posh capability."
       height={540}
       id="polling-snapshots"
     >
@@ -423,22 +411,28 @@ function PollingDiagram({ caption }: { caption: string }) {
       />
       <Boundary
         height={360}
-        label="Provider pagination"
+        label="Proposed Posh pages"
         width={270}
         x={255}
         y={75}
       />
-      <Node lines={["rows 1–100"]} title="Page 1" width={190} x={295} y={125} />
       <Node
-        lines={["rows 101–200"]}
-        title="Page 2"
+        lines={["orders 1–100"]}
+        title="Posh page 1"
+        width={190}
+        x={295}
+        y={125}
+      />
+      <Node
+        lines={["orders 101–200"]}
+        title="Posh page 2"
         width={190}
         x={295}
         y={235}
       />
       <Node
         lines={["final cursor"]}
-        title="Page 3"
+        title="Posh page 3"
         width={190}
         x={295}
         y={345}
@@ -452,15 +446,15 @@ function PollingDiagram({ caption }: { caption: string }) {
       />
       <Decision cx={850} cy={245} lines={["scope", "complete?"]} />
       <Node
-        lines={["atomic replacement"]}
-        title="Current sales"
+        lines={["venue sales", "Productions actuals"]}
+        title="Come and Take It Live"
         tone="green"
-        width={170}
-        x={790}
+        width={195}
+        x={785}
         y={385}
       />
       <Node
-        lines={["keep prior snapshot", "retry missing page"]}
+        lines={["keep prior snapshot", "Productions reviews"]}
         title="Safe failure"
         tone="red"
         width={170}
@@ -514,27 +508,27 @@ function OrderingDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="Venue and promoter updates meet at a version and transition check. Valid facts update the show, while stale or unsafe facts enter review."
+      description="A Come and Take It Live confirmation and a Come and Take It Productions hold meet at Prism transition rules. A proposed Posh onboarding update can change the show only when its version and business state are safe."
       height={520}
       id="ordering-conflicts"
     >
       <Node
         lines={["confirmed · version 8"]}
-        title="Venue update"
-        width={205}
-        x={35}
+        title="Come and Take It Live"
+        width={230}
+        x={25}
         y={105}
       />
       <Node
         lines={["hold · based on v7"]}
-        title="Promoter update"
-        width={205}
-        x={35}
+        title="Come and Take It Productions"
+        width={255}
+        x={25}
         y={315}
       />
       <Node
-        lines={["load current version", "check allowed transition"]}
-        title="Conflict rule"
+        lines={["proposed Posh update", "check allowed transition"]}
+        title="Onboarding conflict rule"
         tone="purple"
         width={225}
         x={335}
@@ -558,14 +552,14 @@ function OrderingDiagram({ caption }: { caption: string }) {
         y={315}
       />
       <Edge
-        d="M240 148 C290 148 290 230 335 240"
+        d="M255 148 C290 148 290 230 335 240"
         label="new fact"
         labelX={260}
         labelY={145}
         markerId={markerId}
       />
       <Edge
-        d="M240 358 C290 358 290 285 335 275"
+        d="M280 358 C300 358 300 285 335 275"
         label="stale fact"
         labelX={255}
         labelY={375}
@@ -598,40 +592,40 @@ function MoneyDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="Ticket, venue, and promoter facts enter a typed ledger. Classification preserves ownership and reason before settlement and reconciliation use the entries."
+      description="DICE, Ticketmaster, Tixr, Eventbrite, and proposed Posh ticket facts join the hypothetical Come and Take It Live venue costs and the Come and Take It Productions deal. Prism classifies each amount before settlement and reconciliation."
       height={560}
       id="money-refunds"
     >
       <Boundary
         height={430}
         label="Financial sources"
-        width={250}
-        x={25}
+        width={270}
+        x={15}
         y={60}
       />
       <Node
         lines={["sales · fees · refunds"]}
-        title="Ticket provider"
-        width={190}
-        x={55}
+        title="DICE + Ticketmaster"
+        width={220}
+        x={40}
         y={120}
       />
       <Node
-        lines={["rental · bar · house"]}
-        title="Venue operations"
-        width={190}
-        x={55}
+        lines={["ticket tiers · comps"]}
+        title="Tixr + Eventbrite"
+        width={220}
+        x={40}
         y={245}
       />
       <Node
-        lines={["offers · deposits"]}
-        title="Promoter activity"
-        width={190}
-        x={55}
+        lines={["fees · refunds · Kickback"]}
+        title="Posh (proposed)"
+        width={220}
+        x={40}
         y={370}
       />
       <Node
-        lines={["amount · owner · source", "reason · occurredAt"]}
+        lines={["Come and Take It Live costs", "Productions deal + split"]}
         title="Classify entry"
         tone="purple"
         width={225}
@@ -699,22 +693,22 @@ function ReconciliationDiagram({ caption }: { caption: string }) {
   return (
     <DiagramCanvas
       caption={caption}
-      description="Expected deal values and actual activity meet in reconciliation. Matched facts close automatically, while differences enter review and can resume from a checkpoint."
+      description="The Come and Take It Productions offer and the Come and Take It Live ticket actuals enter Prism reconciliation. DICE, Ticketmaster, Tixr, Eventbrite, and proposed Posh onboarding data use the same close process. Matched facts close automatically, while differences enter review and resume from a checkpoint."
       height={570}
       id="reconciliation-recovery"
     >
       <Node
         lines={["offer · guarantee · split"]}
-        title="Expected deal"
-        width={210}
-        x={35}
+        title="Come and Take It Productions"
+        width={260}
+        x={20}
         y={105}
       />
       <Node
-        lines={["tickets · expenses · payments"]}
-        title="Actual activity"
-        width={210}
-        x={35}
+        lines={["DICE · Ticketmaster", "Tixr · Eventbrite · Posh"]}
+        title="Come and Take It Live"
+        width={230}
+        x={30}
         y={350}
       />
       <Node
@@ -744,7 +738,7 @@ function ReconciliationDiagram({ caption }: { caption: string }) {
       />
       <Store
         detail="last safe step"
-        title="Checkpoint"
+        title="Posh onboarding"
         width={185}
         x={580}
         y={445}

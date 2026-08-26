@@ -537,13 +537,9 @@ footer {
   color: var(--muted);
   display: flex;
   font-size: 0.7rem;
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-top: clamp(58px, 8vw, 100px);
   padding: 24px 0;
-}
-
-footer p {
-  margin: 0;
 }
 
 footer div {
