@@ -593,7 +593,6 @@ dd {
   border-color: var(--accent);
   color: var(--accent-deep);
 }
-.lesson-tab:focus-visible,
 .lesson-tabs [role="tab"]:focus-visible {
   outline: 3px solid var(--accent-deep);
   outline-offset: 3px;

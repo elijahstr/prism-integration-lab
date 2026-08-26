@@ -10,6 +10,10 @@ export function unavailableSessionMessage(token: string | null): string | null {
   return token ? null : "The lab session is unavailable. Reload this page.";
 }
 
+export function statusLabel(status: string): string {
+  return status.replaceAll("_", " ");
+}
+
 export function focusActionResult(documentLike: FocusDocument): void {
   documentLike.getElementById("main-content")?.focus();
 }

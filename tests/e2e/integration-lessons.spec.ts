@@ -133,6 +133,50 @@ test("preserves the organization, run, and lesson through history navigation", a
   expect(url.searchParams.get("run")).toBeNull();
 });
 
+test("keeps the selected lesson in the current history entry when a scenario finishes", async ({
+  page,
+}) => {
+  await page.goto("/integration-lab?organization=northstar-presents");
+
+  let releaseScenarioRequest: () => void = () => {};
+  let signalScenarioRequest: () => void = () => {};
+  const scenarioRequestStarted = new Promise<void>((resolve) => {
+    signalScenarioRequest = resolve;
+  });
+  const releaseScenarioResponse = new Promise<void>((resolve) => {
+    releaseScenarioRequest = resolve;
+  });
+  const scenarioResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/lab/scenarios/duplicate_webhook/run") &&
+      response.request().method() === "POST",
+  );
+
+  await page.route(
+    "**/api/lab/scenarios/duplicate_webhook/run",
+    async (route) => {
+      signalScenarioRequest();
+      await releaseScenarioResponse;
+      await route.continue();
+    },
+  );
+
+  await page.locator('[role="tab"][data-lesson-id="webhooks"]').click();
+  await page.locator('button[data-scenario-id="duplicate_webhook"]').click();
+  await scenarioRequestStarted;
+  await page.locator('[role="tab"][data-lesson-id="api-mapping"]').click();
+
+  const apiMappingTab = page.locator(
+    '[role="tab"][data-lesson-id="api-mapping"]',
+  );
+  await expect(apiMappingTab).toHaveAttribute("aria-selected", "true");
+  releaseScenarioRequest();
+  expect((await scenarioResponse).status()).toBe(201);
+
+  await expect(page).toHaveURL(/lesson=api-mapping/);
+  await expect(page).toHaveURL(/run=/);
+});
+
 test("moves tab focus and selection with the keyboard", async ({ page }) => {
   await page.goto("/integration-lab?organization=northstar-presents");
 

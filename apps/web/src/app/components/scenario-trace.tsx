@@ -1,27 +1,21 @@
 import type { ScenarioRunDto } from "@prism/contracts";
 
 import { scenarioTitle } from "../lib/integration-lessons";
+import { statusLabel } from "../lib/ui-state";
 
 export type ScenarioTraceProps = {
   onReset: () => Promise<void>;
   pendingAction: string | null;
   run: ScenarioRunDto | null;
-  status: string;
 };
-
-function statusLabel(status: string): string {
-  return status.replaceAll("_", " ");
-}
 
 export function ScenarioTrace({
   onReset,
   pendingAction,
   run,
-  status,
 }: ScenarioTraceProps) {
   return (
-    <section className="panel trace-panel" aria-live="polite">
-      <p className="sr-only">{status}</p>
+    <section className="panel trace-panel">
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Processing trace</p>

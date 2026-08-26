@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { API_MAPPING_REQUIRED_TERMS } from "../lib/integration-lessons";
 import { IntegrationLessons } from "./integration-lessons";
 
 describe("IntegrationLessons", () => {
@@ -59,6 +60,12 @@ describe("IntegrationLessons", () => {
 
     expect(html).toContain('role="tablist"');
     expect(html).toContain('data-lesson-id="api-mapping"');
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toMatch(/<div[^>]*role="tabpanel"[^>]*tabindex="0"/);
+    expect(html.match(/aria-controls=/g) ?? []).toHaveLength(1);
+    const controlledPanelId = html.match(/aria-controls="([^"]+)"/)?.[1];
+    expect(controlledPanelId).toBe("integration-lesson-panel-api-mapping");
+    expect(html).toContain(`id="${controlledPanelId}"`);
     expect(html).toContain('class="lesson-tabs"');
     expect(html).toContain('class="lesson-diagram"');
     expect(html).toContain('class="lesson-diagram-flow"');
@@ -66,6 +73,8 @@ describe("IntegrationLessons", () => {
     expect(html).toContain("EncoreTix");
     expect(html).toContain("Fictional saleWebhook.sale_id field");
     expect(html).toContain('class="lesson-diagram-paths"');
+    expect(html).not.toContain('aria-label="to"');
+    expect(html.match(/aria-hidden="true"/g) ?? []).toHaveLength(6);
     expect(html).not.toContain("<svg");
     expect(html).not.toContain("lesson-diagram-mobile");
     expect(
@@ -84,5 +93,10 @@ describe("IntegrationLessons", () => {
     expect(html.indexOf("Recommended")).toBeLessThan(
       html.indexOf('data-approach="canonical-adapters"'),
     );
+
+    const lowercaseMarkup = html.toLowerCase();
+    for (const term of API_MAPPING_REQUIRED_TERMS) {
+      expect(lowercaseMarkup).toContain(term);
+    }
   });
 });

@@ -87,7 +87,7 @@ export function IntegrationLessons({
 
           return (
             <button
-              aria-controls={panelId}
+              aria-controls={selected ? panelId : undefined}
               aria-selected={selected}
               data-lesson-id={lesson.id}
               id={tabId}
@@ -111,7 +111,11 @@ export function IntegrationLessons({
         aria-labelledby={`integration-lesson-tab-${activeLesson.id}`}
         id={`integration-lesson-panel-${activeLesson.id}`}
         role="tabpanel"
+        tabIndex={0}
       >
+        <p aria-live="polite" className="sr-only">
+          {status}
+        </p>
         <section data-lesson-section="challenge">
           <p className="eyebrow">Fictional provider lesson</p>
           <h2>{activeLesson.title}</h2>
@@ -201,7 +205,6 @@ export function IntegrationLessons({
               onReset={onReset}
               pendingAction={pendingAction}
               run={run}
-              status={status}
             />
           </section>
         ) : null}

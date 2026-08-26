@@ -41,7 +41,6 @@ type LessonBase = {
   diagram: LessonDiagram;
   id: LessonId;
   scenarioIds: readonly ScenarioId[];
-  searchText: string;
   tabLabel: string;
   title: string;
 };
@@ -166,8 +165,6 @@ export const INTEGRATION_LESSONS = [
       "The existing lab proves safe processing. The later tabs explain why its controls exist.",
     ],
     scenarioIds: [],
-    searchText:
-      "Fictional Northstar Presents concert. Fictional EncoreTix sale webhook fields. Fictional VenueWave poll fields. Fictional BoxGrid provider-scoped snapshot fields. Safe processing reading order.",
     tabLabel: "Overview",
     title: "One fictional concert, three provider paths",
   },
@@ -279,8 +276,6 @@ export const INTEGRATION_LESSONS = [
     id: "api-mapping",
     kind: "challenge",
     scenarioIds: ["uncertain_event_match"],
-    searchText:
-      "Fictional EncoreTix saleWebhook.sale_id fields, fictional VenueWave poll.ticketCode fields, and fictional BoxGrid snapshot.order_ref fields map through a canonical model with provider adapters. Preserve stable provider and external IDs, unknown values, integer cents, UTC with source-zone retention, optional fields, capability records, mapping versions, and immutable raw-payload retention.",
     tabLabel: "API Mapping",
     title: "Map provider facts without erasing differences",
   },
@@ -355,8 +350,6 @@ export const INTEGRATION_LESSONS = [
     id: "webhooks",
     kind: "challenge",
     scenarioIds: ["duplicate_webhook"],
-    searchText:
-      "Fictional EncoreTix webhook fields can repeat, delay, or be forged. Durable intake preserves raw input, acknowledges safely, and queues processing.",
     tabLabel: "Webhooks",
     title: "Accept deliveries without trusting arrival",
   },
@@ -426,8 +419,6 @@ export const INTEGRATION_LESSONS = [
     id: "polling-snapshots",
     kind: "challenge",
     scenarioIds: ["provider_outage", "rate_limit", "incomplete_snapshot"],
-    searchText:
-      "Fictional VenueWave poll cursor fields and fictional BoxGrid snapshot fields recover complete provider state with durable cursors and scoped reconciliation.",
     tabLabel: "Polling & Snapshots",
     title: "Recover provider state in two safe paths",
   },
@@ -501,8 +492,6 @@ export const INTEGRATION_LESSONS = [
     id: "ordering-conflicts",
     kind: "challenge",
     scenarioIds: ["late_update"],
-    searchText:
-      "Fictional EncoreTix version fields and fictional VenueWave update fields can arrive late or reuse an ID with changed content.",
     tabLabel: "Ordering & Conflicts",
     title: "Keep provider order separate from arrival time",
   },
@@ -574,8 +563,6 @@ export const INTEGRATION_LESSONS = [
     id: "money-refunds",
     kind: "challenge",
     scenarioIds: [],
-    searchText:
-      "Fictional EncoreTix sale and refund amount fields, fictional VenueWave tax fields, and fictional BoxGrid fee fields become integer-cent components with raw evidence.",
     tabLabel: "Money & Refunds",
     title: "Make financial facts exact and explainable",
   },
@@ -644,8 +631,6 @@ export const INTEGRATION_LESSONS = [
     id: "reconciliation-recovery",
     kind: "challenge",
     scenarioIds: ["provider_change"],
-    searchText:
-      "Fictional BoxGrid snapshot fields compare only BoxGrid provider scope. Fictional EncoreTix sale fields remain valid evidence during review and safe replay.",
     tabLabel: "Reconciliation & Recovery",
     title: "Repair only the facts that evidence can support",
   },
@@ -686,7 +671,6 @@ export function getLessonContractErrors(
     const textFields: ReadonlyArray<readonly [string, string]> = [
       ["tab label", lesson.tabLabel],
       ["title", lesson.title],
-      ["search text", lesson.searchText],
       ["diagram description", lesson.diagram.description],
     ];
 

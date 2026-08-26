@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { ScenarioIdSchema } from "@prism/contracts";
 
 import {
-  API_MAPPING_REQUIRED_TERMS,
   INTEGRATION_LESSONS,
   LESSON_IDS,
   getLessonContractErrors,
@@ -60,14 +59,5 @@ test("keeps every challenge approach complete", () => {
       expect(approach.pros).toHaveLength(2);
       expect(approach.cons).toHaveLength(2);
     }
-  }
-});
-
-test("keeps every required API-mapping term visible", () => {
-  const lesson = INTEGRATION_LESSONS.find(({ id }) => id === "api-mapping")!;
-
-  expect(lesson.searchText).toEqual(expect.stringContaining("canonical model"));
-  for (const term of API_MAPPING_REQUIRED_TERMS) {
-    expect(lesson.searchText.toLowerCase()).toContain(term);
   }
 });

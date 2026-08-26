@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   actionErrorMessage,
   focusActionResult,
+  statusLabel,
   unavailableSessionMessage,
 } from "./ui-state";
 
@@ -30,5 +31,9 @@ describe("action feedback", () => {
     expect(unavailableSessionMessage(null)).toBe(
       "The lab session is unavailable. Reload this page.",
     );
+  });
+
+  test("formats a provider status for a trace step", () => {
+    expect(statusLabel("pending_review")).toBe("pending review");
   });
 });

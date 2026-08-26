@@ -33,13 +33,13 @@ export function LessonDiagram({ diagram, lessonId }: LessonDiagramProps) {
           return (
             <li key={`${edge.from}-${edge.to}`}>
               <span>{from.label}</span>
-              <span aria-label="to" className="lesson-diagram-path-arrow">
+              <span aria-hidden="true" className="lesson-diagram-path-arrow">
                 →
               </span>
               {edge.label ? (
                 <span className="lesson-diagram-path-label">{edge.label}</span>
               ) : null}
-              <span aria-label="to" className="lesson-diagram-path-arrow">
+              <span aria-hidden="true" className="lesson-diagram-path-arrow">
                 →
               </span>
               <span>{to.label}</span>

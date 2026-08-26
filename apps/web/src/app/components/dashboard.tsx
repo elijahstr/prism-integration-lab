@@ -64,6 +64,7 @@ import {
 import {
   actionErrorMessage,
   focusActionResult,
+  statusLabel,
   unavailableSessionMessage,
 } from "../lib/ui-state";
 import { DashboardShell, type DashboardPageName } from "./dashboard-shell";
@@ -110,10 +111,6 @@ function providerName(provider: string): string {
   if (provider === "encoretix") return "EncoreTix";
   if (provider === "venuewave") return "VenueWave";
   return "BoxGrid";
-}
-
-function statusLabel(status: string): string {
-  return status.replaceAll("_", " ");
 }
 
 function ReportCard({
@@ -615,7 +612,7 @@ export function DashboardPage({
   ) => loadCoordinatorRef.current.commitAction(actionGeneration, update);
 
   const replaceRouteState = (nextState: DashboardRouteState) => {
-    if (nextState.organizationSlug !== routeState.organizationSlug) {
+    if (nextState.organizationSlug !== routeStateRef.current.organizationSlug) {
       loadCoordinatorRef.current.invalidate();
     }
     window.history.replaceState(
@@ -702,7 +699,7 @@ export function DashboardPage({
       const nextRun = await requestScenarioRun(token, scenario);
       commitAction(actionGeneration, () => {
         setRun(nextRun);
-        replaceRouteState(withScenarioRun(routeState, nextRun.id));
+        replaceRouteState(withScenarioRun(routeStateRef.current, nextRun.id));
       });
       await refresh(token, organizationSlug, actionGeneration);
       commitAction(actionGeneration, () => {
@@ -750,7 +747,7 @@ export function DashboardPage({
       await requestScenarioReset(token, run.id);
       commitAction(actionGeneration, () => {
         setRun(null);
-        replaceRouteState({ ...routeState, runId: null });
+        replaceRouteState({ ...routeStateRef.current, runId: null });
       });
       await refresh(token, organizationSlug, actionGeneration);
       commitAction(actionGeneration, () => {
