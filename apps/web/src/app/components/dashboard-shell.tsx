@@ -26,6 +26,7 @@ const navigation: Array<{
 ];
 
 const defaultRouteState: DashboardRouteState = {
+  lesson: "overview",
   organizationSlug: "northstar-presents",
   runId: null,
 };

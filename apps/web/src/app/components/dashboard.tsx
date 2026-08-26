@@ -85,6 +85,7 @@ const organizationSlugs = organizations.map(
   (organization) => organization.slug,
 );
 const defaultRouteState: DashboardRouteState = {
+  lesson: "overview",
   organizationSlug: organizations[0].slug,
   runId: null,
 };

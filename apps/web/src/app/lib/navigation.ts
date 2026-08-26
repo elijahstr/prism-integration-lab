@@ -1,4 +1,7 @@
+import { isLessonId, type LessonId } from "./integration-lessons";
+
 export type DashboardRouteState = {
+  lesson: LessonId;
   organizationSlug: string;
   runId: string | null;
 };
@@ -14,8 +17,13 @@ export function dashboardLocation(
     ? requestedOrganization!
     : defaultOrganizationSlug;
   const runId = parameters.get("run")?.trim() || null;
+  const requestedLesson = parameters.get("lesson");
 
-  return { organizationSlug, runId };
+  return {
+    lesson: isLessonId(requestedLesson) ? requestedLesson : "overview",
+    organizationSlug,
+    runId,
+  };
 }
 
 export function dashboardHref(
@@ -29,6 +37,7 @@ export function dashboardHref(
   if (state.runId) {
     parameters.set("run", state.runId);
   }
+  parameters.set("lesson", state.lesson);
 
   return `${path}?${parameters.toString()}`;
 }
@@ -48,7 +57,7 @@ export function switchOrganization(
     return state;
   }
 
-  return { organizationSlug, runId: null };
+  return { ...state, organizationSlug, runId: null };
 }
 
 export function withScenarioRun(
@@ -56,4 +65,11 @@ export function withScenarioRun(
   runId: string,
 ): DashboardRouteState {
   return { ...state, runId };
+}
+
+export function withLesson(
+  state: DashboardRouteState,
+  lesson: LessonId,
+): DashboardRouteState {
+  return { ...state, lesson };
 }
