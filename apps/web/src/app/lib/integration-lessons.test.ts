@@ -27,6 +27,18 @@ test("maps every existing scenario once", () => {
   expect(new Set(mapped).size).toBe(mapped.length);
 });
 
+test("maps the incomplete snapshot to polling and snapshots", () => {
+  const pollingLesson = INTEGRATION_LESSONS.find(
+    ({ id }) => id === "polling-snapshots",
+  )!;
+  const recoveryLesson = INTEGRATION_LESSONS.find(
+    ({ id }) => id === "reconciliation-recovery",
+  )!;
+
+  expect(pollingLesson.scenarioIds).toContain("incomplete_snapshot");
+  expect(recoveryLesson.scenarioIds).not.toContain("incomplete_snapshot");
+});
+
 test("keeps each challenge comparison complete", () => {
   expect(getLessonContractErrors(INTEGRATION_LESSONS)).toEqual([]);
 });

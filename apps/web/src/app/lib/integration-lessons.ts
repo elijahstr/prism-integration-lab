@@ -390,7 +390,7 @@ export const INTEGRATION_LESSONS = [
       "It prevents an early cursor commit or a partial snapshot from silently losing provider state.",
     id: "polling-snapshots",
     kind: "challenge",
-    scenarioIds: ["provider_outage", "rate_limit"],
+    scenarioIds: ["provider_outage", "rate_limit", "incomplete_snapshot"],
     searchText:
       "Fictional VenueWave poll cursor fields and fictional BoxGrid snapshot fields recover complete provider state with durable cursors and scoped reconciliation.",
     tabLabel: "Polling & Snapshots",
@@ -608,7 +608,7 @@ export const INTEGRATION_LESSONS = [
       "It prevents a BoxGrid snapshot from replacing valid EncoreTix sales.",
     id: "reconciliation-recovery",
     kind: "challenge",
-    scenarioIds: ["incomplete_snapshot", "provider_change"],
+    scenarioIds: ["provider_change"],
     searchText:
       "Fictional BoxGrid snapshot fields compare only BoxGrid provider scope. Fictional EncoreTix sale fields remain valid evidence during review and safe replay.",
     tabLabel: "Reconciliation & Recovery",
