@@ -51,10 +51,7 @@ import {
   type DashboardActionGeneration,
   DashboardLoadCoordinator,
 } from "../lib/dashboard-load";
-import {
-  type LessonId,
-  scenarioTitle,
-} from "../lib/integration-lessons";
+import { type LessonId, scenarioTitle } from "../lib/integration-lessons";
 import {
   dashboardHref,
   dashboardLocation,

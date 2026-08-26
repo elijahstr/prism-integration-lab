@@ -71,10 +71,18 @@ export function LessonDiagram({ diagram, lessonId }: LessonDiagramProps) {
             transform={`translate(${node.x} ${node.y})`}
           >
             <rect height="86" rx="10" width="172" x="-86" y="-43" />
-            <text className="lesson-diagram-node-label" textAnchor="middle" y="-8">
+            <text
+              className="lesson-diagram-node-label"
+              textAnchor="middle"
+              y="-8"
+            >
               {node.label}
             </text>
-            <text className="lesson-diagram-node-detail" textAnchor="middle" y="16">
+            <text
+              className="lesson-diagram-node-detail"
+              textAnchor="middle"
+              y="16"
+            >
               {node.detail}
             </text>
           </g>

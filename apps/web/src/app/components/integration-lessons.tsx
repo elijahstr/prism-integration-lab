@@ -74,7 +74,11 @@ export function IntegrationLessons({
 
   return (
     <section className="integration-lessons" aria-label="Integration lessons">
-      <div aria-label="Integration lessons" className="lesson-tabs" role="tablist">
+      <div
+        aria-label="Integration lessons"
+        className="lesson-tabs"
+        role="tablist"
+      >
         {INTEGRATION_LESSONS.map((lesson, index) => {
           const selected = lesson.id === activeLesson.id;
           const tabId = `integration-lesson-tab-${lesson.id}`;
