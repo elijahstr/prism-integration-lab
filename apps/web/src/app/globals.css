@@ -611,42 +611,65 @@ dd {
   font-weight: 800;
   margin-bottom: 14px;
 }
-.lesson-diagram > svg {
-  display: block;
-  height: auto;
-  max-width: 100%;
+.lesson-diagram-flow,
+.lesson-diagram-paths {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-.lesson-diagram-edge line {
-  stroke: var(--accent-deep);
-  stroke-width: 2;
+.lesson-diagram-flow {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 }
-.lesson-diagram-edge path {
-  fill: var(--accent-deep);
+.lesson-diagram-flow-node {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 12px;
 }
-.lesson-diagram-edge text {
-  fill: var(--muted);
-  font-size: 13px;
+.lesson-diagram-flow-node strong {
+  color: var(--lesson-plum);
 }
-.lesson-diagram-node rect {
-  fill: #fff;
-  stroke: var(--border);
-  stroke-width: 2;
+.lesson-diagram-flow-node span {
+  color: var(--muted);
 }
-.lesson-diagram-node-accent rect {
-  fill: var(--lesson-lavender);
-  stroke: var(--accent);
+.lesson-diagram-flow-node-accent {
+  background: var(--lesson-lavender);
+  border-color: var(--accent);
 }
-.lesson-diagram-node-label {
-  fill: var(--lesson-plum);
-  font-size: 15px;
+.lesson-diagram-paths {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  overflow-wrap: anywhere;
+}
+.lesson-diagram-paths li {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+}
+.lesson-diagram-path-arrow {
+  color: var(--accent-deep);
   font-weight: 800;
 }
-.lesson-diagram-node-detail {
-  fill: var(--muted);
-  font-size: 12px;
-}
-.lesson-diagram-mobile {
-  display: none;
+.lesson-diagram-path-label {
+  background: var(--lesson-lavender);
+  border: 1px solid #cfc4ff;
+  border-radius: 999px;
+  color: var(--accent-deep);
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 2px 6px;
 }
 .lesson-discussion-grid {
   display: grid;
@@ -816,48 +839,8 @@ dd {
   .lesson-tabs [role="tab"] {
     width: 100%;
   }
-  .lesson-diagram > svg {
-    display: none;
-  }
-  .lesson-diagram-mobile {
-    display: block;
-  }
-  .lesson-diagram-mobile ol,
-  .lesson-diagram-mobile-edges {
-    display: grid;
-    gap: 10px;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .lesson-diagram-mobile-node,
-  .lesson-diagram-mobile-edges li {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    min-width: 0;
-    padding: 12px;
-  }
-  .lesson-diagram-mobile-node {
-    display: grid;
-    gap: 3px;
-  }
-  .lesson-diagram-mobile-node strong {
-    color: var(--lesson-plum);
-  }
-  .lesson-diagram-mobile-node span,
-  .lesson-diagram-mobile-edges li {
-    overflow-wrap: anywhere;
-  }
-  .lesson-diagram-mobile-node.lesson-diagram-node-accent {
-    background: var(--lesson-lavender);
-    border-color: var(--accent);
-  }
-  .lesson-diagram-mobile-edges {
-    margin-top: 12px;
-  }
-  .lesson-diagram-mobile-edges li {
-    display: grid;
-    gap: 4px;
+  .lesson-diagram-flow {
+    grid-template-columns: 1fr;
   }
   .lesson-approach-grid,
   .lesson-discussion-grid,

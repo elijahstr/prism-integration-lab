@@ -175,6 +175,33 @@ for (const viewport of [
     );
     await expect(page.getByRole("tabpanel")).toBeVisible();
 
+    const diagram = page.locator(".lesson-diagram");
+    const diagramNodes = diagram.locator(".lesson-diagram-flow-node");
+    const diagramPaths = diagram.locator(".lesson-diagram-paths > li");
+    await expect(diagramNodes).toHaveCount(4);
+    await expect(diagramPaths).toHaveCount(3);
+
+    for (let index = 0; index < (await diagramNodes.count()); index += 1) {
+      const node = diagramNodes.nth(index);
+
+      await expect(node).toBeVisible();
+      await expect(node.locator("strong")).not.toBeEmpty();
+      await expect(node.locator("span")).not.toBeEmpty();
+      expect(
+        await node.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true);
+    }
+
+    for (let index = 0; index < (await diagramPaths.count()); index += 1) {
+      expect(
+        await diagramPaths
+          .nth(index)
+          .evaluate((element) => element.scrollWidth <= element.clientWidth),
+      ).toBe(true);
+    }
+
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
     expect(

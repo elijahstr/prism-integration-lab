@@ -11,24 +11,23 @@ describe("IntegrationLessons", () => {
       "utf8",
     );
     const mobileStyles = css.slice(css.indexOf("@media (max-width: 680px)"));
-    const diagramStyles = css.match(
-      /\.lesson-diagram > svg\s*\{([^}]*)\}/,
-    )?.[1];
 
     expect(css).toContain("--accent: #6d28d9;");
     expect(css).toMatch(
       /font-family:\s*Avenir Next,\s*Avenir,\s*"Segoe UI",\s*Helvetica,\s*Arial,\s*sans-serif;/,
     );
     expect(css).toMatch(/\.lesson-approach\.recommended\s*\{/);
-    expect(diagramStyles).toContain("display: block;");
-    expect(diagramStyles).toContain("height: auto;");
-    expect(diagramStyles).toContain("max-width: 100%;");
-    expect(css).toMatch(/\.lesson-diagram-mobile\s*\{\s*display: none;/);
-    expect(mobileStyles).toMatch(
-      /\.lesson-diagram > svg\s*\{\s*display: none;/,
+    expect(css).toMatch(
+      /\.lesson-diagram-flow\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(170px,\s*1fr\)\);/s,
+    );
+    expect(css).toMatch(
+      /\.lesson-diagram-flow-node\s*\{[^}]*border:\s*1px solid var\(--border\);/s,
+    );
+    expect(css).toMatch(
+      /\.lesson-diagram-paths\s*\{[^}]*overflow-wrap:\s*anywhere;/s,
     );
     expect(mobileStyles).toMatch(
-      /\.lesson-diagram-mobile\s*\{\s*display: block;/,
+      /\.lesson-diagram-flow\s*\{\s*grid-template-columns:\s*1fr;/,
     );
 
     for (const selector of [
@@ -62,6 +61,13 @@ describe("IntegrationLessons", () => {
     expect(html).toContain('data-lesson-id="api-mapping"');
     expect(html).toContain('class="lesson-tabs"');
     expect(html).toContain('class="lesson-diagram"');
+    expect(html).toContain('class="lesson-diagram-flow"');
+    expect(html).toContain('class="lesson-diagram-flow-node"');
+    expect(html).toContain("EncoreTix");
+    expect(html).toContain("Fictional saleWebhook.sale_id field");
+    expect(html).toContain('class="lesson-diagram-paths"');
+    expect(html).not.toContain("<svg");
+    expect(html).not.toContain("lesson-diagram-mobile");
     expect(
       html.indexOf(
         "Three fictional provider shapes map into one explicit Prism model.",
@@ -72,7 +78,6 @@ describe("IntegrationLessons", () => {
     expect(html).toContain("Failure prevented");
     expect(html).toContain('class="lesson-approach recommended"');
     expect(html).toContain('class="lesson-recommendation-label"');
-    expect(html).toContain('class="lesson-diagram-mobile"');
     expect(html).toContain('class="lesson-debt"');
     expect(html.match(/data-approach-kind="pro"/g) ?? []).toHaveLength(6);
     expect(html.match(/data-approach-kind="con"/g) ?? []).toHaveLength(6);
