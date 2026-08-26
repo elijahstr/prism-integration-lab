@@ -5,8 +5,13 @@ node_modules/
 .next/
 dist/
 coverage/
+out/
+playwright-report/
+test-results/
 .turbo/
 .superpowers/
 .worktrees/
 docs/superpowers/specs/prism-integration-lab-companion/out-*.html
+docs/superpowers/specs/prism-teaching-flow-companion/out-*.html
 docs/superpowers/plans/prism-integration-lab-companion/out-*
+docs/superpowers/plans/prism-teaching-flow-companion/out-*

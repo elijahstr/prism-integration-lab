@@ -1,0 +1,14 @@
+{
+  "name": "@prism/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@prism/contracts": "workspace:*",
+    "@prism/database": "workspace:*",
+    "@prism/domain": "workspace:*",
+    "@prism/providers": "workspace:*",
+    "bullmq": "6.2.0",
+    "ioredis": "6.0.0"
+  }
+}

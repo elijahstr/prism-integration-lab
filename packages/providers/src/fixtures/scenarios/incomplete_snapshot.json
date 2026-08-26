@@ -1,0 +1,10 @@
+{
+  "scenario": "incomplete_snapshot",
+  "state": "needs_review",
+  "input": "BoxGrid sends a snapshot without its completion marker.",
+  "processing": "The worker stages the snapshot and stops before replacement.",
+  "normalized": "No replacement operation is emitted.",
+  "databaseEffect": "Current BoxGrid facts remain unchanged while staging keeps the raw snapshot.",
+  "audit": "The audit records the incomplete snapshot sequence.",
+  "explanation": "Prism never replaces provider totals from a partial snapshot."
+}

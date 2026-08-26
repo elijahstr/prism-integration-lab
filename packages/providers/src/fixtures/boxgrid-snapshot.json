@@ -1,0 +1,9 @@
+{
+  "complete": true,
+  "facts": {
+    "grossSalesCents": 1500000,
+    "inventory": 400,
+    "sold": 600
+  },
+  "sequence": "9007199254740993"
+}

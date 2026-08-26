@@ -1,0 +1,134 @@
+import { expect, test } from "@playwright/test";
+import type { ScenarioId } from "@prism/contracts";
+
+type ScenarioExpectation = {
+  audit: string;
+  databaseEffect: RegExp | string;
+  id: ScenarioId;
+  lesson: string;
+  normalized: string;
+  title: string;
+};
+
+const scenarios: readonly ScenarioExpectation[] = [
+  {
+    audit: "The applied delivery has durable audit evidence.",
+    databaseEffect: "One ingestion message and one normalized effect exist.",
+    id: "duplicate_webhook",
+    lesson: "webhooks",
+    normalized: "One immutable EncoreTix sale effect remains.",
+    title: "Duplicate webhook",
+  },
+  {
+    audit: "The applied late effect has durable audit evidence.",
+    databaseEffect:
+      "The provider fact increases once and keeps its source evidence.",
+    id: "late_update",
+    lesson: "ordering-conflicts",
+    normalized: "One late EncoreTix sale effect applies once.",
+    title: "Late update",
+  },
+  {
+    audit:
+      "Audit evidence records the temporary error, 1000 ms executed backoff, and recovery after 2 attempts.",
+    databaseEffect:
+      /^The cursor changed from .+ to cursor-outage-recovered after 2 attempts and one durable message\.$/,
+    id: "provider_outage",
+    lesson: "polling-snapshots",
+    normalized:
+      "The successful second poll produced one VenueWave sale effect.",
+    title: "Provider outage",
+  },
+  {
+    audit:
+      "Audit evidence records the 60000 ms executed wait and both retry cursor inputs.",
+    databaseEffect:
+      /^The cursor stayed unchanged at ([^;]+); both real poll attempts used \1,\1, and no message or financial effect was stored\.$/,
+    id: "rate_limit",
+    lesson: "polling-snapshots",
+    normalized: "The controlled rate limit emitted no financial operation.",
+    title: "Rate limit",
+  },
+  {
+    audit: "The audit records the missing confirmed event mapping.",
+    databaseEffect:
+      "The message and review item remain pending human confirmation.",
+    id: "uncertain_event_match",
+    lesson: "api-mapping",
+    normalized: "No financial operation is emitted.",
+    title: "Uncertain event match",
+  },
+  {
+    audit: "The audit records the incomplete snapshot sequence.",
+    databaseEffect:
+      "Current BoxGrid facts remain unchanged while staging keeps the raw snapshot.",
+    id: "incomplete_snapshot",
+    lesson: "polling-snapshots",
+    normalized: "No replacement operation is emitted.",
+    title: "Incomplete snapshot",
+  },
+  {
+    audit: "A reconciliation audit records both provider scopes.",
+    databaseEffect: "The show total is 1,000 across provider-scoped facts.",
+    id: "provider_change",
+    lesson: "reconciliation-recovery",
+    normalized: "EncoreTix has 400 sales. BoxGrid has 600 sales.",
+    title: "Provider change",
+  },
+];
+
+for (const scenario of scenarios) {
+  test(`${scenario.title} keeps trace evidence inside its browser session`, async ({
+    browser,
+    page,
+  }) => {
+    await page.goto("/integration-lab");
+    await expect(page.getByRole("tablist")).toBeVisible();
+    await page
+      .locator(`[role="tab"][data-lesson-id="${scenario.lesson}"]`)
+      .click();
+    await page.locator(`button[data-scenario-id="${scenario.id}"]`).click();
+
+    const trace = page.locator(".trace-panel");
+    await expect(
+      trace.getByRole("heading", { name: scenario.title }),
+    ).toBeVisible();
+    await expect(trace.getByText("Normalized output")).toBeVisible();
+    await expect(trace.getByText(scenario.normalized)).toBeVisible();
+    await expect(trace.getByText(scenario.databaseEffect)).toBeVisible();
+    await expect(trace.getByText("Audit result")).toBeVisible();
+    await expect(trace.getByText(scenario.audit)).toBeVisible();
+    const firstRunUrl = new URL(page.url());
+    const firstRunId = firstRunUrl.searchParams.get("run");
+
+    expect(firstRunId).not.toBeNull();
+
+    const isolatedContext = await browser.newContext();
+    const isolatedPage = await isolatedContext.newPage();
+    await isolatedPage.goto("/integration-lab");
+    await expect(isolatedPage.getByRole("tablist")).toBeVisible();
+    const hiddenRunResponse = isolatedPage.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/lab/runs/${firstRunId}`) &&
+        response.request().method() === "GET",
+    );
+    await isolatedPage.goto(
+      `/integration-lab/?organization=northstar-presents&run=${firstRunId}`,
+    );
+    expect((await hiddenRunResponse).status()).toBe(404);
+    await expect(
+      isolatedPage.getByRole("heading", {
+        name: "The dashboard is unavailable",
+      }),
+    ).toBeVisible();
+    await expect(
+      isolatedPage.getByRole("heading", { name: scenario.title }),
+    ).toHaveCount(0);
+    await expect(isolatedPage.getByText(scenario.normalized)).toHaveCount(0);
+    await expect(isolatedPage.getByText(scenario.databaseEffect)).toHaveCount(
+      0,
+    );
+    await expect(isolatedPage.getByText(scenario.audit)).toHaveCount(0);
+    await isolatedContext.close();
+  });
+}

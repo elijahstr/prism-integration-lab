@@ -1,0 +1,259 @@
+import { expect, test, type Page } from "@playwright/test";
+
+async function expectSelectedAndFocusedTab(
+  page: Page,
+  name: string,
+): Promise<void> {
+  const tab = page.getByRole("tab", { name });
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+  await expect(tab).toBeFocused();
+}
+
+test("shows the approved seven-tab teaching order", async ({ page }) => {
+  await page.goto("/integration-lab?organization=northstar-presents");
+
+  await expect(page.getByRole("tab")).toHaveText([
+    "Overview",
+    "API Mapping",
+    "Webhooks",
+    "Polling & Snapshots",
+    "Ordering & Conflicts",
+    "Money & Refunds",
+    "Reconciliation & Recovery",
+  ]);
+  await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+});
+
+test("teaches API mapping before an action and keeps the full mapping vocabulary", async ({
+  page,
+}) => {
+  await page.goto(
+    "/integration-lab?organization=harborlight-live&lesson=api-mapping",
+  );
+
+  const panel = page.getByRole("tabpanel");
+  await expect(panel).toContainText("canonical model");
+  await expect(panel).toContainText("immutable raw-payload retention");
+  await expect(panel.locator(".lesson-diagram")).toBeVisible();
+  const discussion = panel.locator(".lesson-discussion-grid");
+  const discussionGroups = discussion.locator(":scope > section");
+  await expect(discussion).toBeVisible();
+  await expect(discussionGroups).toHaveCount(3);
+  await expect(discussionGroups.getByRole("heading")).toHaveText([
+    "Identity and status",
+    "Money and time",
+    "Change and proof",
+  ]);
+  await expect(discussionGroups.nth(0)).toContainText(
+    "stable provider and external IDs",
+  );
+  await expect(discussionGroups.nth(0)).toContainText("unknown values");
+  await expect(discussionGroups.nth(1)).toContainText("integer cents");
+  await expect(discussionGroups.nth(1)).toContainText("source-zone retention");
+  await expect(discussionGroups.nth(2)).toContainText("capability records");
+  await expect(discussionGroups.nth(2)).toContainText(
+    "immutable raw-payload retention",
+  );
+  await expect(panel.locator(".lesson-recommendation-label")).toHaveText(
+    "Recommended",
+  );
+  await expect(panel.locator("[data-approach]")).toHaveCount(3);
+  await expect(panel.locator("[data-approach-kind=pro]")).toHaveCount(6);
+  await expect(panel.locator("[data-approach-kind=con]")).toHaveCount(6);
+  await expect(panel).toContainText("Technical debt path");
+  await expect(panel).toContainText("Failure prevented");
+  const sectionOrder = await panel
+    .locator("[data-lesson-section]")
+    .evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute("data-lesson-section")),
+    );
+
+  expect(sectionOrder.indexOf("diagram")).toBeLessThan(
+    sectionOrder.indexOf("actions"),
+  );
+});
+
+test("preserves the organization, run, and lesson through history navigation", async ({
+  page,
+}) => {
+  await page.context().setExtraHTTPHeaders({
+    "x-forwarded-for": "203.0.113.24",
+  });
+  await page.goto("/integration-lab?organization=northstar-presents");
+
+  await page.locator('[role="tab"][data-lesson-id="api-mapping"]').click();
+  let url = new URL(page.url());
+  expect(url.searchParams.get("organization")).toBe("northstar-presents");
+  expect(url.searchParams.get("lesson")).toBe("api-mapping");
+  expect(url.searchParams.get("run")).toBeNull();
+
+  await page.locator('[role="tab"][data-lesson-id="webhooks"]').click();
+  await page.locator('button[data-scenario-id="duplicate_webhook"]').click();
+  const trace = page.locator(".trace-panel");
+  await expect(
+    trace.getByRole("heading", { name: "Duplicate webhook" }),
+  ).toBeVisible();
+  url = new URL(page.url());
+  const runId = url.searchParams.get("run");
+  expect(runId).not.toBeNull();
+
+  await page.locator('[role="tab"][data-lesson-id="api-mapping"]').click();
+  await page.goBack();
+  await expect(
+    page.locator('[role="tab"][data-lesson-id="webhooks"]'),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    trace.getByRole("heading", { name: "Duplicate webhook" }),
+  ).toBeVisible();
+  url = new URL(page.url());
+  expect(url.searchParams.get("organization")).toBe("northstar-presents");
+  expect(url.searchParams.get("run")).toBe(runId);
+
+  await page.goForward();
+  await expect(
+    page.locator('[role="tab"][data-lesson-id="api-mapping"]'),
+  ).toHaveAttribute("aria-selected", "true");
+  url = new URL(page.url());
+  expect(url.searchParams.get("organization")).toBe("northstar-presents");
+  expect(url.searchParams.get("run")).toBe(runId);
+
+  await page.getByLabel("Demo organization").selectOption("harborlight-live");
+  await expect(
+    page.locator('[role="tab"][data-lesson-id="api-mapping"]'),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByLabel("Demo organization")).toHaveValue(
+    "harborlight-live",
+  );
+  url = new URL(page.url());
+  expect(url.searchParams.get("organization")).toBe("harborlight-live");
+  expect(url.searchParams.get("lesson")).toBe("api-mapping");
+  expect(url.searchParams.get("run")).toBeNull();
+});
+
+test("keeps the selected lesson in the current history entry when a scenario finishes", async ({
+  page,
+}) => {
+  await page.goto("/integration-lab?organization=northstar-presents");
+
+  let releaseScenarioRequest: () => void = () => {};
+  let signalScenarioRequest: () => void = () => {};
+  const scenarioRequestStarted = new Promise<void>((resolve) => {
+    signalScenarioRequest = resolve;
+  });
+  const releaseScenarioResponse = new Promise<void>((resolve) => {
+    releaseScenarioRequest = resolve;
+  });
+  const scenarioResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/lab/scenarios/duplicate_webhook/run") &&
+      response.request().method() === "POST",
+  );
+
+  await page.route(
+    "**/api/lab/scenarios/duplicate_webhook/run",
+    async (route) => {
+      signalScenarioRequest();
+      await releaseScenarioResponse;
+      await route.continue();
+    },
+  );
+
+  await page.locator('[role="tab"][data-lesson-id="webhooks"]').click();
+  await page.locator('button[data-scenario-id="duplicate_webhook"]').click();
+  await scenarioRequestStarted;
+  await page.locator('[role="tab"][data-lesson-id="api-mapping"]').click();
+
+  const apiMappingTab = page.locator(
+    '[role="tab"][data-lesson-id="api-mapping"]',
+  );
+  await expect(apiMappingTab).toHaveAttribute("aria-selected", "true");
+  releaseScenarioRequest();
+  expect((await scenarioResponse).status()).toBe(201);
+
+  await expect(page).toHaveURL(/lesson=api-mapping/);
+  await expect(page).toHaveURL(/run=/);
+});
+
+test("moves tab focus and selection with the keyboard", async ({ page }) => {
+  await page.goto("/integration-lab?organization=northstar-presents");
+
+  const overview = page.getByRole("tab", { name: "Overview" });
+  await overview.focus();
+  await overview.press("ArrowRight");
+  await expectSelectedAndFocusedTab(page, "API Mapping");
+
+  await page.getByRole("tab", { name: "API Mapping" }).press("ArrowLeft");
+  await expectSelectedAndFocusedTab(page, "Overview");
+
+  await page.getByRole("tab", { name: "Overview" }).press("End");
+  await expectSelectedAndFocusedTab(page, "Reconciliation & Recovery");
+
+  await page
+    .getByRole("tab", { name: "Reconciliation & Recovery" })
+    .press("Home");
+  await expectSelectedAndFocusedTab(page, "Overview");
+});
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 900 },
+  { name: "390px", width: 390, height: 844 },
+] as const) {
+  test(`has no browser errors or horizontal overflow at ${viewport.name}`, async ({
+    page,
+  }) => {
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    await page.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    });
+    await page.goto(
+      "/integration-lab?organization=northstar-presents&lesson=api-mapping",
+    );
+    await expect(page.getByRole("tabpanel")).toBeVisible();
+
+    const diagram = page.locator(".lesson-diagram");
+    const diagramNodes = diagram.locator(".lesson-diagram-flow-node");
+    const diagramPaths = diagram.locator(".lesson-diagram-paths > li");
+    await expect(diagramNodes).toHaveCount(4);
+    await expect(diagramPaths).toHaveCount(3);
+
+    for (let index = 0; index < (await diagramNodes.count()); index += 1) {
+      const node = diagramNodes.nth(index);
+
+      await expect(node).toBeVisible();
+      await expect(node.locator("strong")).not.toBeEmpty();
+      await expect(node.locator("span")).not.toBeEmpty();
+      expect(
+        await node.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true);
+    }
+
+    for (let index = 0; index < (await diagramPaths.count()); index += 1) {
+      expect(
+        await diagramPaths
+          .nth(index)
+          .evaluate((element) => element.scrollWidth <= element.clientWidth),
+      ).toBe(true);
+    }
+
+    expect(consoleErrors).toEqual([]);
+    expect(pageErrors).toEqual([]);
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+  });
+}

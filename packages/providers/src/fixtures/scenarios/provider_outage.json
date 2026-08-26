@@ -1,0 +1,6 @@
+{
+  "scenario": "provider_outage",
+  "state": "recovered",
+  "input": "VenueWave returns temporary failures before a successful poll.",
+  "explanation": "Temporary provider failure does not lose work because the cursor advances after durable processing."
+}
