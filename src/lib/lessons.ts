@@ -2,8 +2,8 @@ export const LESSON_IDS = [
   "overview",
   "api-mapping",
   "ordering-conflicts",
-  "webhooks",
   "transaction-accuracy",
+  "webhooks",
 ] as const;
 
 export type LessonId = (typeof LESSON_IDS)[number];
@@ -172,7 +172,7 @@ const LESSONS_BY_ID: readonly Lesson[] = [
   {
     id: "webhooks",
     tab: "Webhooks",
-    eyebrow: "Challenge 03 · duplicate ticket facts",
+    eyebrow: "Challenge 04 · duplicate ticket facts",
     title: "One ticket update must change totals once",
     intro:
       "For the Come and Take It Live show, a provider can send the same sale, refund, transfer, or cancelled ticket state more than once. Prism must not double-count the event.",
@@ -232,7 +232,7 @@ const LESSONS_BY_ID: readonly Lesson[] = [
   {
     id: "transaction-accuracy",
     tab: "Transaction Accuracy",
-    eyebrow: "Challenge 04 · accurate show settlement",
+    eyebrow: "Challenge 03 · accurate show settlement",
     title: "Keep each money fact separate until settlement",
     intro:
       "Prism records each financial component, then reconciles those facts before the show closes. This keeps ticket money, venue costs, and promoter deal terms accurate and explainable.",

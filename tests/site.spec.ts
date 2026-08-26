@@ -73,8 +73,8 @@ test("shows the venue and promoter overview", async ({ page }) => {
     "Overview",
     "API Mapping",
     "Ordering & Conflicts",
-    "Webhooks",
     "Transaction Accuracy",
+    "Webhooks",
   ]);
   await expect(page.locator(".architecture-diagram")).toHaveCount(0);
   await expect(page.getByText(removedFooter)).toHaveCount(0);
@@ -99,8 +99,8 @@ test("uses visible challenge numbers in lesson order", async ({ page }) => {
   for (const [id, challenge] of [
     ["api-mapping", "01"],
     ["ordering-conflicts", "02"],
-    ["webhooks", "03"],
-    ["transaction-accuracy", "04"],
+    ["transaction-accuracy", "03"],
+    ["webhooks", "04"],
   ]) {
     await page.goto(`/?lesson=${id}`);
     await expect(page.locator(".eyebrow")).toContainText(
@@ -249,8 +249,10 @@ test("uses the approved keyboard tab order", async ({ page }) => {
 
   const ordering = page.getByRole("tab", { name: "Ordering & Conflicts" });
   await ordering.press("ArrowRight");
-  await expect(page.getByRole("tab", { name: "Webhooks" })).toBeFocused();
-  await expect(page).toHaveURL(/lesson=webhooks/);
+  await expect(
+    page.getByRole("tab", { name: "Transaction Accuracy" }),
+  ).toBeFocused();
+  await expect(page).toHaveURL(/lesson=transaction-accuracy/);
 });
 
 test("uses the approved footer order", async ({ page }) => {
@@ -259,13 +261,13 @@ test("uses the approved footer order", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "← API Mapping" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Webhooks →" })).toBeVisible();
-
-  await page.getByRole("button", { name: "Webhooks →" }).click();
-  await expect(page).toHaveURL(/lesson=webhooks/);
   await expect(
     page.getByRole("button", { name: "Transaction Accuracy →" }),
   ).toBeVisible();
+
+  await page.getByRole("button", { name: "Transaction Accuracy →" }).click();
+  await expect(page).toHaveURL(/lesson=transaction-accuracy/);
+  await expect(page.getByRole("button", { name: "Webhooks →" })).toBeVisible();
 });
 
 test("keeps mobile diagrams inside a scrollable viewport", async ({ page }) => {
