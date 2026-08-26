@@ -4,8 +4,6 @@ An unofficial portfolio prototype that explains ticket-provider architecture for
 
 The scenario uses Come and Take It Live in Austin and Come and Take It Productions. The provider and transport examples are hypothetical.
 
-Business context comes from the [Prism success story](https://prism.fm/success-stories/come-and-take-it-productions/), [Prism venue and promoter overview](https://prism.fm/why-prism-for-venues-and-promoters/), and [Come and Take It Live](https://www.comeandtakeitlive.com/).
-
 ## What is included
 
 - Seven topic tabs on one page
