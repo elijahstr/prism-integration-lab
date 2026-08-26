@@ -738,20 +738,20 @@ function ReconciliationDiagram({ caption }: { caption: string }) {
       />
       <Store
         detail="last safe step"
-        title="Posh onboarding"
+        title="Recovery checkpoint"
         width={185}
         x={580}
         y={445}
       />
       <Edge
-        d="M245 148 C295 148 295 255 335 265"
+        d="M280 148 C295 148 295 255 335 265"
         label="expected"
-        labelX={260}
+        labelX={290}
         labelY={145}
         markerId={markerId}
       />
       <Edge
-        d="M245 393 C295 393 295 315 335 300"
+        d="M260 393 C295 393 295 315 335 300"
         label="actual"
         labelX={270}
         labelY={410}
