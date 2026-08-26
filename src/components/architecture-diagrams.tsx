@@ -409,189 +409,89 @@ function OrderingDiagram({ caption }: { caption: string }) {
   );
 }
 
-function TicketDataIntegrityDiagram({ caption }: { caption: string }) {
-  const markerId = "ticket-data-integrity-arrow";
+function WebhookDiagram({ caption }: { caption: string }) {
+  const markerId = "webhooks-arrow";
   const actors = [
-    [0, "Posh (proposed)", "provider", 185],
-    [195, "Provider adapter", "integration boundary", 205],
-    [420, "Durable intake", "inbox + snapshot staging", 190],
-    [630, "Sync process", "Prism worker", 160],
-    [790, "Trusted ticket facts", "published Prism view", 210],
+    [40, "Posh (proposed)"],
+    [285, "Webhook edge"],
+    [530, "Durable inbox"],
+    [775, "Worker"],
   ] as const;
 
   return (
     <DiagramCanvas
       caption={caption}
-      description="Sequence diagram. A proposed Posh sale reaches the provider adapter, durable intake, and Sync process. Prism applies the first delivery once. A duplicate retry has no second effect. The adapter requests a paged report. Posh returns pages one and two, then returns a page-three failure. The adapter stages the partial report, error, and cursor. Sync keeps trusted ticket facts unchanged. The adapter retries page three. After Posh returns it, durable intake sends the complete scope to Sync for validation and publication."
-      height={1600}
-      id="ticket-data-integrity"
+      description="A proposed Posh onboarding event for the hypothetical Come and Take It Live show enters the Prism durable inbox. Prism processes it once, then exposes the sale to Come and Take It Productions actuals. The diagram treats webhook delivery as a design option, not a stated Posh capability."
+      height={590}
+      id="webhooks"
     >
-      {actors.map(([x, title, detail, width], index) => {
-        const center = x + width / 2;
-        return (
-          <g key={title}>
-            <Node
-              lines={[detail]}
-              title={title}
-              tone={index === 2 ? "purple" : index === 4 ? "green" : "default"}
-              width={width}
-              x={x}
-              y={30}
-            />
-            <path
-              className="architecture-lifeline"
-              d={`M${center} 122 V1545`}
-            />
-          </g>
-        );
-      })}
+      {actors.map(([x, title], index) => (
+        <g key={title}>
+          <Node
+            lines={[index === 0 ? "external" : "Prism component"]}
+            title={title}
+            tone={index === 2 ? "purple" : "default"}
+            width={185}
+            x={x}
+            y={35}
+          />
+          <path className="architecture-lifeline" d={`M${x + 92} 125 V545`} />
+        </g>
+      ))}
       <Edge
-        d="M92.5 175 H298"
-        label="1 · sale event arrives"
-        labelX={125}
-        labelY={162}
+        d="M132 170 H377"
+        label="1 · proposed sale event"
+        labelX={185}
+        labelY={158}
         markerId={markerId}
       />
       <Edge
-        d="M298 245 H515"
-        label="2 · store event ID"
-        labelX={325}
-        labelY={232}
+        d="M377 235 H622"
+        label="2 · verify + record"
+        labelX={420}
+        labelY={223}
         markerId={markerId}
       />
       <Edge
-        d="M515 315 H710"
-        label="3 · first delivery"
-        labelX={530}
-        labelY={302}
+        d="M622 300 H867"
+        label="3 · process event"
+        labelX={670}
+        labelY={288}
         markerId={markerId}
       />
       <Edge
-        d="M710 385 H895"
-        label="4 · apply once"
-        labelX={720}
-        labelY={372}
+        d="M867 365 H622"
+        label="4 · mark complete"
+        labelX={680}
+        labelY={353}
         markerId={markerId}
         tone="green"
       />
       <Edge
-        d="M92.5 465 H298"
+        d="M132 445 H377"
         dashed
-        label="5 · duplicate retry"
-        labelX={125}
-        labelY={452}
+        label="5 · retry same event"
+        labelX={185}
+        labelY={433}
         markerId={markerId}
         tone="red"
       />
       <Edge
-        d="M298 535 H515"
+        d="M377 510 H132"
         dashed
-        label="6 · event already complete"
-        labelX={315}
-        labelY={522}
-        markerId={markerId}
-      />
-      <Edge
-        d="M515 605 H92.5"
-        dashed
-        label="7 · acknowledge, no second effect"
+        label="6 · acknowledge duplicate"
         labelX={175}
-        labelY={592}
+        labelY={498}
         markerId={markerId}
         tone="green"
       />
-      <Edge
-        d="M298 685 H92.5"
-        label="8 · request ticket report"
-        labelX={125}
-        labelY={672}
-        markerId={markerId}
-      />
-      <Edge
-        d="M92.5 755 H298"
-        label="9 · report pages 1 + 2"
-        labelX={115}
-        labelY={742}
-        markerId={markerId}
-      />
-      <Edge
-        d="M298 825 H515"
-        label="10 · stage partial report"
-        labelX={325}
-        labelY={812}
-        markerId={markerId}
-      />
-      <Edge
-        d="M298 895 H92.5"
-        label="11 · request page 3"
-        labelX={125}
-        labelY={882}
-        markerId={markerId}
-      />
-      <Edge
-        d="M92.5 965 H298"
-        label="12 · page 3 failure"
-        labelX={135}
-        labelY={952}
-        markerId={markerId}
-        tone="red"
-      />
-      <Edge
-        d="M298 1035 H515"
-        label="13 · stage error + cursor"
-        labelX={310}
-        labelY={1022}
-        markerId={markerId}
-        tone="red"
-      />
-      <Edge
-        d="M710 1105 H895"
-        dashed
-        label="14 · keep last trusted facts"
-        labelX={725}
-        labelY={1092}
-        markerId={markerId}
-        tone="red"
-      />
-      <Edge
-        d="M298 1175 H92.5"
-        dashed
-        label="15 · retry page 3"
-        labelX={135}
-        labelY={1162}
-        markerId={markerId}
-      />
-      <Edge
-        d="M92.5 1245 H298"
-        label="16 · page 3 arrives"
-        labelX={130}
-        labelY={1232}
-        markerId={markerId}
+      <Node
+        lines={["sales + actuals", "one effect only"]}
+        title="Come and Take It Live"
         tone="green"
-      />
-      <Edge
-        d="M298 1315 H515"
-        label="17 · stage complete report"
-        labelX={310}
-        labelY={1302}
-        markerId={markerId}
-        tone="green"
-      />
-      <Edge
-        d="M515 1385 H710"
-        label="18 · send complete scope"
-        labelX={520}
-        labelY={1372}
-        markerId={markerId}
-        tone="green"
-      />
-      <Edge
-        d="M710 1455 H895"
-        label="19 · validate and publish snapshot"
-        labelX={710}
-        labelY={1442}
-        markerId={markerId}
-        tone="green"
+        width={205}
+        x={775}
+        y={445}
       />
     </DiagramCanvas>
   );
@@ -726,8 +626,8 @@ export function ArchitectureDiagram({
       return <ApiMappingDiagram caption={caption} />;
     case "ordering-conflicts":
       return <OrderingDiagram caption={caption} />;
-    case "ticket-data-integrity":
-      return <TicketDataIntegrityDiagram caption={caption} />;
+    case "webhooks":
+      return <WebhookDiagram caption={caption} />;
     case "transaction-accuracy":
       return <TransactionAccuracyDiagram caption={caption} />;
   }

@@ -73,7 +73,7 @@ test("shows the venue and promoter overview", async ({ page }) => {
     "Overview",
     "API Mapping",
     "Ordering & Conflicts",
-    "Ticket Data Integrity",
+    "Webhooks",
     "Transaction Accuracy",
   ]);
   await expect(page.locator(".architecture-diagram")).toHaveCount(0);
@@ -99,7 +99,7 @@ test("uses visible challenge numbers in lesson order", async ({ page }) => {
   for (const [id, challenge] of [
     ["api-mapping", "01"],
     ["ordering-conflicts", "02"],
-    ["ticket-data-integrity", "03"],
+    ["webhooks", "03"],
     ["transaction-accuracy", "04"],
   ]) {
     await page.goto(`/?lesson=${id}`);
@@ -123,10 +123,10 @@ for (const lesson of [
       /One Prism show record holds the accepted date, room, status, and version/,
   },
   {
-    id: "ticket-data-integrity",
-    diagramName: /Prism applies a proposed Posh sale once/,
-    scenarioText: /Keep one trustworthy sold count/,
-    detailText: /Idempotency means a retry has the same effect as one delivery/,
+    id: "webhooks",
+    diagramName: /A proposed Posh event enters Prism once/,
+    scenarioText: /Receive a duplicate proposed Posh sale/,
+    detailText: /A webhook is a provider message that arrives after a change/,
   },
   {
     id: "transaction-accuracy",
@@ -159,26 +159,16 @@ for (const lesson of [
   });
 }
 
-test("shows the complete ticket-data sequence", async ({ page }) => {
-  await page.goto("/?lesson=ticket-data-integrity");
+test("shows the webhook duplicate-delivery sequence", async ({ page }) => {
+  await page.goto("/?lesson=webhooks");
 
   for (const label of [
-    "sale event arrives",
-    "apply once",
-    "duplicate retry",
-    "acknowledge, no second effect",
-    "request ticket report",
-    "report pages 1 + 2",
-    "stage partial report",
-    "request page 3",
-    "page 3 failure",
-    "stage error + cursor",
-    "keep last trusted facts",
-    "retry page 3",
-    "page 3 arrives",
-    "stage complete report",
-    "send complete scope",
-    "validate and publish snapshot",
+    "proposed sale event",
+    "verify + record",
+    "process event",
+    "mark complete",
+    "retry same event",
+    "acknowledge duplicate",
   ]) {
     await expect(
       page.locator("svg text").filter({ hasText: label }),
@@ -186,10 +176,8 @@ test("shows the complete ticket-data sequence", async ({ page }) => {
   }
 });
 
-test("keeps every merged-diagram node title inside its node", async ({
-  page,
-}) => {
-  for (const lesson of ["ticket-data-integrity", "transaction-accuracy"]) {
+test("keeps every diagram node title inside its node", async ({ page }) => {
+  for (const lesson of ["webhooks", "transaction-accuracy"]) {
     await page.goto(`/?lesson=${lesson}`);
     const overflow = await page
       .locator(".architecture-diagram svg")
@@ -234,8 +222,8 @@ test("shows the transaction accuracy recovery flow", async ({ page }) => {
 
 test("resolves legacy links to canonical lessons", async ({ page }) => {
   for (const [legacy, canonical, tab] of [
-    ["webhooks", "ticket-data-integrity", "Ticket Data Integrity"],
-    ["polling-snapshots", "ticket-data-integrity", "Ticket Data Integrity"],
+    ["ticket-data-integrity", "webhooks", "Webhooks"],
+    ["polling-snapshots", "webhooks", "Webhooks"],
     ["money-refunds", "transaction-accuracy", "Transaction Accuracy"],
     ["reconciliation-recovery", "transaction-accuracy", "Transaction Accuracy"],
   ]) {
@@ -261,10 +249,8 @@ test("uses the approved keyboard tab order", async ({ page }) => {
 
   const ordering = page.getByRole("tab", { name: "Ordering & Conflicts" });
   await ordering.press("ArrowRight");
-  await expect(
-    page.getByRole("tab", { name: "Ticket Data Integrity" }),
-  ).toBeFocused();
-  await expect(page).toHaveURL(/lesson=ticket-data-integrity/);
+  await expect(page.getByRole("tab", { name: "Webhooks" })).toBeFocused();
+  await expect(page).toHaveURL(/lesson=webhooks/);
 });
 
 test("uses the approved footer order", async ({ page }) => {
@@ -273,12 +259,10 @@ test("uses the approved footer order", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "← API Mapping" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Ticket Data Integrity →" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Webhooks →" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Ticket Data Integrity →" }).click();
-  await expect(page).toHaveURL(/lesson=ticket-data-integrity/);
+  await page.getByRole("button", { name: "Webhooks →" }).click();
+  await expect(page).toHaveURL(/lesson=webhooks/);
   await expect(
     page.getByRole("button", { name: "Transaction Accuracy →" }),
   ).toBeVisible();
@@ -287,7 +271,7 @@ test("uses the approved footer order", async ({ page }) => {
 test("keeps mobile diagrams inside a scrollable viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
 
-  for (const lesson of ["ticket-data-integrity", "transaction-accuracy"]) {
+  for (const lesson of ["webhooks", "transaction-accuracy"]) {
     await page.goto(`/?lesson=${lesson}`);
     await expectNoDocumentOverflow(page);
     await expect(page.locator(".architecture-viewport")).toHaveAttribute(

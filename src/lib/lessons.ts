@@ -2,7 +2,7 @@ export const LESSON_IDS = [
   "overview",
   "api-mapping",
   "ordering-conflicts",
-  "ticket-data-integrity",
+  "webhooks",
   "transaction-accuracy",
 ] as const;
 
@@ -170,63 +170,63 @@ const LESSONS_BY_ID: readonly Lesson[] = [
     },
   },
   {
-    id: "ticket-data-integrity",
-    tab: "Ticket Data Integrity",
-    eyebrow: "Challenge 03 · complete ticket facts",
-    title: "Apply events once and publish complete ticket facts",
+    id: "webhooks",
+    tab: "Webhooks",
+    eyebrow: "Challenge 03 · duplicate ticket facts",
+    title: "One ticket update must change totals once",
     intro:
-      "Prism applies each provider event once and publishes ticket totals only after it has a complete report. It does not prove that a provider report is true. It protects complete, traceable, and current ticket facts for the show.",
+      "For the Come and Take It Live show, a provider can send the same sale, refund, transfer, or cancelled ticket state more than once. Prism must not double-count the event.",
     context:
-      "Idempotency means a retry has the same effect as one delivery. Webhooks provide fast updates. Polling asks a provider for a paged report. Prism keeps incomplete reports in staging, keeps the last complete facts visible, and records the provider evidence and time for each published snapshot.",
+      "A webhook is a provider message that arrives after a change. The proposed Posh onboarding must treat webhooks as an option, not an assumed capability. Prism must accept a retry without creating a second financial fact.",
     diagramCaption:
-      "Prism applies a proposed Posh sale once, then publishes the Come and Take It Live ticket total only after a complete report validates.",
+      "A proposed Posh event enters Prism once, then updates the Come and Take It Live sales total and the Come and Take It Productions actuals.",
     approaches: [
       {
-        name: "Durable inbox + staged complete snapshots",
-        fit: "Come and Take It Live and Come and Take It Productions need fresh ticket actuals without double-counts or partial totals.",
+        name: "Durable inbox + idempotency",
+        fit: "Come and Take It Productions needs reliable ticket actuals before settlement.",
         pros: [
-          "A sale or refund retry is safe and traceable.",
-          "An incomplete provider report cannot replace trusted ticket facts.",
+          "A sale or refund retry is safe.",
+          "Prism can resume failed work from the original event.",
         ],
         cons: [
-          "Prism needs durable intake, staging, and retry state.",
-          "The newest total waits for the final page and validation.",
+          "Prism needs storage and a worker.",
+          "Each provider needs a stable event identity key.",
         ],
-        debt: "Inbox retention, snapshot cleanup, stale-data alerts, and replay tools need operational ownership.",
+        debt: "The inbox needs retention, replay tools, and operational ownership.",
         recommended: true,
       },
       {
-        name: "Process immediately and replace by page",
-        fit: "A display-only list with no settlement or operational decision.",
-        pros: ["Small request path.", "Each page appears quickly."],
+        name: "Process during the request",
+        fit: "A low-volume show feed with no settlement effect.",
+        pros: ["Simple request path.", "The update appears at once."],
         cons: [
-          "A duplicate can change the total twice.",
-          "A failed final page can publish a false sold count.",
+          "Slow work can cause provider retries.",
+          "A crash can leave a partial sale or refund update.",
         ],
-        debt: "Recovery becomes tied to page order, request failures, and provider-specific cursor behavior.",
+        debt: "Each added side effect makes the ticket endpoint slower and harder to recover.",
       },
       {
-        name: "Use periodic reports only",
-        fit: "A low-frequency dashboard that does not need near-real-time ticket changes.",
-        pros: ["One provider access path.", "No webhook endpoint."],
+        name: "Ignore duplicates by timestamp",
+        fit: "A display-only feed with no money or settlement effect.",
+        pros: ["Small implementation.", "No separate event store."],
         cons: [
-          "Sales, refunds, and transfers remain stale between reports.",
-          "A failed report delays discovery of ticket changes.",
+          "A valid late refund can disappear.",
+          "Provider clocks can order facts incorrectly.",
         ],
-        debt: "Operators add manual checks and special report schedules as show volume grows.",
+        debt: "Exception rules grow when ticket transfers and refunds arrive out of order.",
       },
     ],
     example: {
-      title: "Keep one trustworthy sold count",
+      title: "Receive a duplicate proposed Posh sale",
       setup:
-        "A proposed Posh sale for the Come and Take It Live show arrives twice. A later three-page Posh report fails on page three before it completes.",
+        "A design assumption sends the same Posh sale event twice after a network timeout.",
       steps: [
-        "Store the first sale under its provider event ID and acknowledge the retry without a second sold-count change.",
-        "Stage report pages one and two with the failed page-three cursor, while the last complete ticket facts stay visible.",
-        "Retry page three and validate the full report scope before Prism publishes the candidate snapshot.",
+        "Store the first delivery under its provider event ID.",
+        "Apply the sale to the Come and Take It Live sold count and mark it complete.",
+        "Acknowledge the retry without changing the Come and Take It Productions gross actuals again.",
       ],
       result:
-        "Come and Take It Live and Come and Take It Productions see one trustworthy sold count, with evidence for the event and the completed report.",
+        "The sale increases the show total once, and Prism keeps the duplicate event for audit.",
     },
   },
   {
@@ -301,8 +301,8 @@ export const LESSONS: readonly Lesson[] = LESSON_IDS.map((id) => {
 });
 
 const LEGACY_LESSON_ALIASES = {
-  webhooks: "ticket-data-integrity",
-  "polling-snapshots": "ticket-data-integrity",
+  "ticket-data-integrity": "webhooks",
+  "polling-snapshots": "webhooks",
   "money-refunds": "transaction-accuracy",
   "reconciliation-recovery": "transaction-accuracy",
 } as const satisfies Record<string, LessonId>;
