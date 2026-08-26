@@ -204,7 +204,7 @@ export const INTEGRATION_LESSONS = [
       },
     ],
     challenge:
-      "The challenge is to make three fictional shapes usable without treating them as the same provider contract.",
+      "The challenge is to make three fictional shapes usable without treating them as the same provider contract. The canonical model uses provider adapters, preserves stable provider and external IDs and unknown values, stores integer cents and UTC with source-zone retention, accepts optional fields and capability records, tracks mapping versions, and uses immutable raw-payload retention.",
     cost: "The recommended cost is a durable mapping registry.",
     debtPath: "Its debt path is capability and mapping-version migration work.",
     diagram: {
